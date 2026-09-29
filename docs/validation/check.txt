@@ -1,0 +1,70 @@
+
+> android-agent-skill@0.1.0 check
+> npm run lint && npm run typecheck && npm test
+
+
+> android-agent-skill@0.1.0 lint
+> eslint packages tests scripts benchmarks
+
+
+> android-agent-skill@0.1.0 typecheck
+> tsc --noEmit
+
+
+> android-agent-skill@0.1.0 test
+> npm run build && node --test tests/*.test.mjs
+
+
+> android-agent-skill@0.1.0 build
+> tsc
+
+✔ project graph detects Android, manifests, dependencies and SDK (15.272166ms)
+✔ version catalog aliases resolve plugin identity and versions (2.760458ms)
+✔ unknown computed SDK is null, never a false policy pass (4.789208ms)
+✔ scanner honors ignore rules and never follows symlinks (1.747875ms)
+✔ managed files reject traversal and symlink ancestors (0.956625ms)
+✔ XML rejects entities and malformed input (0.177208ms)
+✔ audit detects unsafe Firebase rule with location (3.834083ms)
+✔ commented insecure rules do not produce critical finding (1.491459ms)
+✔ policy thresholds differ by platform (4.536333ms)
+✔ process runner preserves argv without shell expansion (24.762083ms)
+✔ failed subprocess never becomes successful evidence (21.137042ms)
+✔ timeouts terminate subprocess (53.361917ms)
+✔ process output cap reports truncation (25.447ms)
+✔ redaction removes environment secrets and private keys (0.187625ms)
+✔ confirmation is action-bound and consumed (5.048125ms)
+✔ init refuses overwriting existing config (1.347416ms)
+✔ dry-run init creates no file (0.443084ms)
+✔ schema rejects unknown operation parameters (0.529833ms)
+✔ resumable run validates evidence and source fingerprint (8.7885ms)
+✔ run rejects tampered completed evidence (4.70525ms)
+✔ multiple devices require explicit selection (2.977542ms)
+✔ offline or unauthorized selection fails (0.546417ms)
+✔ shell metacharacters in device text are rejected before execution (0.672375ms)
+✔ device mutation uses selected serial and bounded argv (2.925208ms)
+✔ UI parser masks password content and returns bounds (1.514ms)
+✔ ambiguous UI selector refuses tap (2.177042ms)
+✔ Gradle missing wrapper is actionable failure (1.101667ms)
+✔ Gradle rejects task injection (0.325833ms)
+✔ CLI help exits successfully (120.91825ms)
+✔ CLI inspect emits one machine readable document (121.440292ms)
+✔ CLI unknown command fails (101.148916ms)
+✔ MCP stdio handshake, list and call inspection (126.059333ms)
+✔ external provider is disabled before network (0.821292ms)
+✔ local provider refuses a non-loopback endpoint (0.11875ms)
+✔ Gemini sends structured request and parses tool calls (8.435083ms)
+✔ OpenAI request disables response storage (0.277542ms)
+✔ fallback is explicit and records unavailable provider (0.272709ms)
+✔ local SSE streaming handles split chunks (0.392042ms)
+✔ screenshots render opaque PNG without replacing source (116.468042ms)
+✔ offline documentation search returns source and unknown retrieval date (1.5145ms)
+✔ provider structured result is schema-validated (10.266792ms)
+✔ unsupported stream tool mode fails before network (0.090875ms)
+ℹ tests 42
+ℹ suites 0
+ℹ pass 42
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 764.1435

@@ -1,0 +1,126 @@
+{
+  "at": "2026-09-29T09:40:29.962Z",
+  "node": "v24.15.0",
+  "platform": "darwin",
+  "results": [
+    {
+      "command": "android-agent --help",
+      "exitCode": 0,
+      "error": null,
+      "ready": null,
+      "stdoutPresent": true
+    },
+    {
+      "command": "android-agent doctor --json",
+      "exitCode": 1,
+      "error": null,
+      "ready": false,
+      "checks": [
+        {
+          "name": "adb",
+          "status": "FAIL"
+        },
+        {
+          "name": "Android SDK",
+          "status": "WARNING"
+        },
+        {
+          "name": "ANDROID_HOME",
+          "status": "WARNING"
+        },
+        {
+          "name": "avdmanager",
+          "status": "WARNING"
+        },
+        {
+          "name": "bundletool",
+          "status": "WARNING"
+        },
+        {
+          "name": "disk space",
+          "status": "PASS"
+        },
+        {
+          "name": "emulator",
+          "status": "WARNING"
+        },
+        {
+          "name": "firebase",
+          "status": "WARNING"
+        },
+        {
+          "name": "gcloud",
+          "status": "WARNING"
+        },
+        {
+          "name": "gradle",
+          "status": "WARNING"
+        },
+        {
+          "name": "Gradle wrapper",
+          "status": "WARNING"
+        },
+        {
+          "name": "java",
+          "status": "FAIL"
+        },
+        {
+          "name": "JAVA_HOME",
+          "status": "WARNING"
+        },
+        {
+          "name": "kotlinc",
+          "status": "WARNING"
+        },
+        {
+          "name": "node",
+          "status": "PASS"
+        },
+        {
+          "name": "npm",
+          "status": "PASS"
+        },
+        {
+          "name": "sdkmanager",
+          "status": "WARNING"
+        }
+      ],
+      "stdoutPresent": true
+    },
+    {
+      "command": "android-agent inspect --json",
+      "exitCode": 0,
+      "error": null,
+      "ready": null,
+      "stdoutPresent": true
+    },
+    {
+      "command": "android-agent devices --json",
+      "exitCode": 1,
+      "error": "EXEC",
+      "ready": null,
+      "stdoutPresent": true
+    },
+    {
+      "command": "android-agent emulator list --json",
+      "exitCode": 1,
+      "error": "EXEC",
+      "ready": null,
+      "stdoutPresent": true
+    },
+    {
+      "command": "android-agent build --json",
+      "exitCode": 1,
+      "error": "GRADLE_WRAPPER",
+      "ready": null,
+      "stdoutPresent": true
+    },
+    {
+      "command": "android-agent test --json",
+      "exitCode": 1,
+      "error": "GRADLE_WRAPPER",
+      "ready": null,
+      "stdoutPresent": true
+    }
+  ]
+}

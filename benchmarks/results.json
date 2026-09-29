@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "purpose": "fixture-validation-NOT-agent-comparison",
+  "comparisonRun": false,
+  "model": null,
+  "client": null,
+  "node": "v24.15.0",
+  "platform": "darwin",
+  "at": "2026-09-29T09:39:18.879Z",
+  "results": [
+    {
+      "id": "firebase-public",
+      "validated": true,
+      "durationMs": 4.35,
+      "inputHash": "1f0313fb7026cb6f7e9863f0afafb3fc0ac82f4649b30b938fa7e5c68841fee4",
+      "repairHash": "3d77ad0b3c5cbc127581de94adb4567dc192c0a7e739012794b9a1248975edf4",
+      "toolCalls": 2,
+      "build": null,
+      "tests": null
+    },
+    {
+      "id": "compose-global",
+      "validated": true,
+      "durationMs": 1.5,
+      "inputHash": "15a489411ed36e53f8ffaf8ed50325289d8fd9903e4768465b342e7339a06508",
+      "repairHash": "5bcd407cfff89b96bd09a36ec0c8bb0db5ecca218d86fe77e22daa2d908d531b",
+      "toolCalls": 2,
+      "build": null,
+      "tests": null
+    },
+    {
+      "id": "cleartext",
+      "validated": true,
+      "durationMs": 1.28,
+      "inputHash": "dacebe5c98b77f5feafb13643c003e38eade1bab8a34aa677fadf5bb4f0bf4c6",
+      "repairHash": "cdca7b6f807057b839fb26783e7ddcc0cd7cd3cb8a08e61003a35779a0c5f4a7",
+      "toolCalls": 2,
+      "build": null,
+      "tests": null
+    },
+    {
+      "id": "play-target",
+      "validated": true,
+      "durationMs": 1.63,
+      "inputHash": "6e60f4c5f5e957749fff1a1dc5e01e21de3f48e135a49ae028996d5f661f9d56",
+      "repairHash": "aea6141eb0c6ee7da4aa80f764ff4778694cd280c5b4dfc7ab1b49a53cae1cf6",
+      "toolCalls": 2,
+      "build": null,
+      "tests": null
+    },
+    {
+      "id": "exported",
+      "validated": true,
+      "durationMs": 2.9,
+      "inputHash": "537af656fec05224db82fdfd23223400ee97e1e701fd1544e390573af7d7c869",
+      "repairHash": "25c2e7399d8b885563c70fedb0f22a07c86e8aef35a7d99e7889b45104655dba",
+      "toolCalls": 2,
+      "build": null,
+      "tests": null
+    }
+  ]
+}
