@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-09-29",
+  "reviewAfter": "2026-10-29",
+  "policy": {
+    "effective": "2026-08-31",
+    "newAppsAndUpdates": {
+      "phone": 36,
+      "tablet": 36,
+      "foldable": 36,
+      "wear": 35,
+      "automotive": 35,
+      "tv": 34,
+      "xr": 34
+    },
+    "source": "https://developer.android.com/google/play/requirements/target-sdk"
+  },
+  "toolchain": {
+    "android": {
+      "version": "17",
+      "api": 37,
+      "source": "https://developer.android.com/about/versions/17"
+    },
+    "agp": {
+      "version": "9.4.0",
+      "gradle": "9.6.0",
+      "jdk": 17,
+      "maxApi": 37,
+      "source": "https://developer.android.com/build/releases/agp-9-4-0-release-notes"
+    },
+    "studio": {
+      "version": "Quail 4 2026.1.4 Patch 1",
+      "source": "https://developer.android.com/studio/releases"
+    },
+    "kotlin": {
+      "version": "2.4.20",
+      "source": "https://kotlinlang.org/docs/releases.html"
+    },
+    "adb": {
+      "version": "37.0.1",
+      "source": "https://developer.android.com/tools/releases/platform-tools"
+    },
+    "gradle": {
+      "version": "9.8.0",
+      "source": "https://docs.gradle.org/current/release-notes.html",
+      "note": "Latest standalone stable; AGP 9.4 documents Gradle 9.6.0 as its minimum/default. Do not upgrade blindly."
+    }
+  },
+  "libraries": {
+    "composeBom": {
+      "version": "2026.09.00",
+      "source": "https://developer.android.com/develop/ui/compose/bom"
+    },
+    "compose": {
+      "version": "1.12.1",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "material3": {
+      "version": "1.4.0",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "room": {
+      "version": "2.8.5",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "room3": {
+      "version": "3.0.3",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "firebaseBom": {
+      "version": "34.18.0",
+      "source": "https://firebase.google.com/support/release-notes/android"
+    },
+    "billing": {
+      "version": "9.0.0",
+      "source": "https://developer.android.com/google/play/billing/release-notes"
+    },
+    "navigation": {
+      "version": "2.10.2",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "navigation3": {
+      "version": "1.2.0",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "lifecycle": {
+      "version": "2.11.0",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "workmanager": {
+      "version": "2.12.0",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "datastore": {
+      "version": "1.2.1",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "camera": {
+      "version": "1.6.2",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "credentials": {
+      "version": "1.6.0",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "androidxHilt": {
+      "version": "1.4.0",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "paging": {
+      "version": "3.5.1",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "media3": {
+      "version": "1.11.1",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "benchmark": {
+      "version": "1.5.0",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "window": {
+      "version": "1.5.1",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    },
+    "carApp": {
+      "version": "1.7.0",
+      "source": "https://developer.android.com/jetpack/androidx/versions"
+    }
+  },
+  "recommendations": {
+    "compileSdk": 37,
+    "minSdk": "Choose from product reach and actual library requirements; current AndroidX default is 24. No universal minimum.",
+    "expressive": "Check individual API annotations; Material3 stable does not imply all Expressive APIs are stable.",
+    "kmp": "Use Kotlin release guidance and the Android KMP plugin compatibility table; do not blindly apply JVM/Android plugin combinations."
+  },
+  "unresolved": [
+    {
+      "component": "emulator",
+      "status": "verify-selected-artifact-before-use",
+      "reason": "Use installed SDK Manager channel; current version was not extracted confidently.",
+      "source": "https://developer.android.com/studio/releases/emulator"
+    },
+    {
+      "component": "bundletool",
+      "status": "verify-selected-artifact-before-use",
+      "reason": "Verify tagged release and artifact checksum before installation.",
+      "source": "https://developer.android.com/tools/bundletool"
+    },
+    {
+      "component": "playServices",
+      "status": "verify-selected-artifact-before-use",
+      "reason": "Independently versioned artifacts, no single SDK version.",
+      "source": "https://developers.google.com/android/guides/releases"
+    },
+    {
+      "component": "maps",
+      "status": "verify-selected-artifact-before-use",
+      "reason": "Verify current selected artifact against official release notes.",
+      "source": "https://developers.google.com/maps/documentation/android-sdk/release-notes"
+    },
+    {
+      "component": "places",
+      "status": "verify-selected-artifact-before-use",
+      "reason": "Verify current selected artifact against official release notes.",
+      "source": "https://developers.google.com/maps/documentation/places/android-sdk/release-notes"
+    },
+    {
+      "component": "playIntegrity",
+      "status": "verify-selected-artifact-before-use",
+      "reason": "Official page retrieval failed; no fabricated version.",
+      "source": "https://developer.android.com/google/play/integrity"
+    },
+    {
+      "component": "mlKit",
+      "status": "verify-selected-artifact-before-use",
+      "reason": "Independently versioned feature artifacts.",
+      "source": "https://developers.google.com/ml-kit/release-notes"
+    },
+    {
+      "component": "liteRT",
+      "status": "verify-selected-artifact-before-use",
+      "reason": "Choose runtime and API compatibility from official Android guide.",
+      "source": "https://developers.google.com/edge/litert/android"
+    },
+    {
+      "component": "wearOS",
+      "status": "verify-selected-artifact-before-use",
+      "reason": "Verify selected system image; platform-specific runtime tests pending.",
+      "source": "https://developer.android.com/training/wearables"
+    },
+    {
+      "component": "xr",
+      "status": "verify-selected-artifact-before-use",
+      "reason": "Official support exists; individual Jetpack XR packages may be preview.",
+      "source": "https://developer.android.com/develop/xr"
+    },
+    {
+      "component": "hiltDagger",
+      "status": "verify-selected-artifact-before-use",
+      "reason": "AndroidX Hilt is distinct from Dagger Hilt; verify compiler/runtime pair.",
+      "source": "https://developer.android.com/training/dependency-injection/hilt-android"
+    },
+    {
+      "component": "screenshotTesting",
+      "status": "verify-selected-artifact-before-use",
+      "reason": "Check current plugin status and AGP compatibility before enabling.",
+      "source": "https://developer.android.com/studio/preview/compose-screenshot-testing"
+    }
+  ]
+}

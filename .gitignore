@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.android-agent/
+*.tgz
+.env*
+!.env.example
+.DS_Store

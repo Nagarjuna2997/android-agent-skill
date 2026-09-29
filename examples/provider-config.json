@@ -1,0 +1,1 @@
+{"schemaVersion":1,"providers":{"provider":"auto","models":{"gemini":"YOUR_GEMINI_MODEL","openai":"YOUR_OPENAI_MODEL","claude":"YOUR_CLAUDE_MODEL","local":"YOUR_LOCAL_MODEL"},"routes":{"analysis":"gemini","coding":"openai","reasoning":"claude","vision":"gemini"},"fallback":[],"externalEnabled":false,"localUrl":"http://127.0.0.1:11434/v1/chat/completions"}}

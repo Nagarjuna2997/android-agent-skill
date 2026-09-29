@@ -1,0 +1,1 @@
+{"title":"Local release review","steps":[{"id":"inspect","operation":"inspect"},{"id":"firebase","operation":"firebase audit"},{"id":"play","operation":"play validate","parameters":{"platform":"phone"}}]}

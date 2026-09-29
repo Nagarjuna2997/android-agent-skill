@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="Local-first Android engineering tools for AI coding agents. Inspect, execute and verify with evidence."
+    />
+    <title>Android Agent Skill — Engineering, with evidence.</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%2313231c'/%3E%3Cpath d='M10 28L20 10L30 28M14 22H26' fill='none' stroke='%23a8f0bc' stroke-width='3'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header>
+      <a class="brand" href="#"
+        ><span class="mark">A_</span> ANDROID AGENT SKILL</a
+      >
+      <nav aria-label="Main">
+        <a href="#capabilities">Capabilities</a><a href="#commands">CLI</a
+        ><a href="#mcp">MCP</a
+        ><a href="https://github.com/Nagarjuna2997/android-agent-skill"
+          >GitHub ↗</a
+        >
+      </nav>
+    </header>
+    <main id="main">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">
+            <span class="dot"></span> LOCAL-FIRST · DEVELOPER PREVIEW 0.1
+          </p>
+          <h1>Android engineering.<br /><em>With evidence.</em></h1>
+          <p class="lead">
+            Give your coding agent a working connection to your Android project,
+            build tools and devices. Every result should have something to show
+            for it.
+          </p>
+          <div class="actions">
+            <a class="button" href="#install">Start building <span>↗</span></a
+            ><a class="textlink" href="#commands">Explore the commands →</a>
+          </div>
+          <p class="micro">
+            Open source · No telemetry · Your provider, your choice
+          </p>
+        </div>
+        <div class="terminal" aria-label="Illustrative CLI workflow">
+          <div class="terminalbar">
+            <span>● ● ●</span><span>android-agent / workflow example</span>
+          </div>
+          <pre><span class="dim">01 / UNDERSTAND</span>
+<span class="prompt">$</span> android-agent inspect --json
+<span class="dim">    modules · manifests · dependencies</span>
+
+<span class="dim">02 / EXECUTE</span>
+<span class="prompt">$</span> android-agent build --variant Debug
+<span class="dim">    project wrapper → Gradle → artifact</span>
+
+<span class="dim">03 / VERIFY</span>
+<span class="prompt">$</span> android-agent ui inspect --device SERIAL
+<span class="dim">    selected device → hierarchy → evidence</span>
+
+<span class="signal">↳ Observations, not assumptions.</span></pre>
+          <div class="terminalfoot">
+            Illustrative commands, not a claimed device run.
+          </div>
+        </div>
+      </section>
+      <div class="workflow">
+        <span>UNDERSTAND</span><b>→</b><span>EXECUTE</span><b>→</b
+        ><span>OBSERVE</span><b>→</b><span>VERIFY</span><b>→</b
+        ><span>RETEST</span>
+      </div>
+      <section id="capabilities">
+        <div class="sectionhead">
+          <p class="eyebrow">01 / THE TOOLBOX</p>
+          <h2>A platform layer.<br />From source to screen.</h2>
+          <p>
+            One shared execution core, available through the command line and
+            MCP. Clear boundaries between source analysis and observed runtime
+            behavior.
+          </p>
+        </div>
+        <div class="grid">
+          <article>
+            <span class="number">01</span>
+            <h3>Understand the project</h3>
+            <p>
+              Inspect Gradle modules, version catalogs, manifests, permissions
+              and Kotlin/Java source signals.
+            </p>
+            <code>android-agent inspect</code>
+          </article>
+          <article>
+            <span class="number">02</span>
+            <h3>Build. Test. Diagnose.</h3>
+            <p>
+              Run trusted Gradle wrappers. Preserve exit status, fresh reports
+              and artifact hashes. Extract crash signals from logs.
+            </p>
+            <code>android-agent test unit</code>
+          </article>
+          <article>
+            <span class="number">03</span>
+            <h3>Control the device</h3>
+            <p>
+              Select an authorized device. Launch apps, inspect the hierarchy,
+              tap unique elements and capture the result.
+            </p>
+            <code>android-agent ui inspect</code>
+          </article>
+          <article>
+            <span class="number">04</span>
+            <h3>Review the integration</h3>
+            <p>
+              Find Firebase rule risks, permission declarations and Compose
+              review signals. Every heuristic states its limits.
+            </p>
+            <code>android-agent firebase audit</code>
+          </article>
+          <article>
+            <span class="number">05</span>
+            <h3>Prepare for release</h3>
+            <p>
+              Review form-factor-aware target SDK requirements. Compose supplied
+              screenshots with configurable local templates.
+            </p>
+            <code>android-agent play validate</code>
+          </article>
+          <article>
+            <span class="number">06</span>
+            <h3>Keep the evidence</h3>
+            <p>
+              Save deterministic workflows, source fingerprints and hashed
+              results. Resume only when the context still matches.
+            </p>
+            <code>android-agent runs resume</code>
+          </article>
+        </div>
+      </section>
+      <section id="install" class="splitsection">
+        <div>
+          <p class="eyebrow">02 / GET STARTED</p>
+          <h2>Your workspace.<br />Your tools.</h2>
+          <p>
+            Node.js 22+. Add a JDK, Android SDK and project wrapper when you
+            need Android execution. Start with source installation while the npm
+            release is being prepared.
+          </p>
+          <a href="https://github.com/Nagarjuna2997/android-agent-skill#readme"
+            >Read the installation guide ↗</a
+          >
+        </div>
+        <div class="codebox">
+          <button class="copy" data-copy="install-code">Copy</button>
+          <pre id="install-code">
+git clone https://github.com/Nagarjuna2997/android-agent-skill.git
+cd android-agent-skill
+npm ci
+npm run build
+npm link
+android-agent doctor --project /path/to/app --json</pre>
+        </div>
+      </section>
+      <section id="commands">
+        <div class="sectionhead">
+          <p class="eyebrow">03 / COMMAND REFERENCE</p>
+          <h2>Small commands.<br />Verifiable outcomes.</h2>
+        </div>
+        <label class="searchlabel" for="search">Find a command</label
+        ><input
+          id="search"
+          type="search"
+          placeholder="Try “firebase”, “screenshot” or “emulator”…"
+        />
+        <div id="command-list" class="command-list" aria-live="polite"></div>
+        <p class="micro">
+          Run --help for required flags. The generated inventory reflects
+          implemented operations.
+        </p>
+      </section>
+      <section id="mcp" class="splitsection">
+        <div>
+          <p class="eyebrow">04 / AGENT INTERFACE</p>
+          <h2>The same tools.<br />Inside your agent.</h2>
+          <p>
+            Launch a project-scoped stdio MCP server. Mutation tools are
+            disabled by default. Enable them deliberately; destructive actions
+            keep a separate confirmation boundary.
+          </p>
+          <p class="micro">
+            SDK protocol tests included. Individual agent-client integrations
+            are not yet certified.
+          </p>
+        </div>
+        <div class="codebox">
+          <pre>
+{
+  "mcpServers": {
+    "android-agent": {
+      "command": "android-agent",
+      "args": [
+        "--project", "/absolute/path/to/app",
+        "mcp"
+      ]
+    }
+  }
+}</pre>
+        </div>
+      </section>
+      <section class="detailgrid">
+        <article id="emulator">
+          <p class="eyebrow">EMULATOR & UI</p>
+          <h3>Select. Observe. Act.</h3>
+          <p>
+            AVD creation uses installed system images. Launch and boot
+            verification are separate. UI actions prefer hierarchy text and
+            resource IDs over image guesses.
+          </p>
+        </article>
+        <article id="compose">
+          <p class="eyebrow">KOTLIN & COMPOSE</p>
+          <h3>Signals worth reviewing.</h3>
+          <p>
+            Find blocking calls, unstructured scopes and localization concerns.
+            Static matching is not compiler analysis or a recomposition
+            measurement.
+          </p>
+        </article>
+        <article id="firebase">
+          <p class="eyebrow">FIREBASE & PLAY</p>
+          <h3>Know what needs a closer look.</h3>
+          <p>
+            Review source rules and configuration paths locally. Play thresholds
+            are dated and form-factor-aware. No deployed-security or
+            store-approval claims.
+          </p>
+        </article>
+        <article id="screenshots">
+          <p class="eyebrow">SCREENSHOT STUDIO</p>
+          <h3>Make the capture useful.</h3>
+          <p>
+            Stack, split and minimal templates. Your captions, colors and
+            localized captures. Opaque exports and asset hashes; review the
+            final composition before upload.
+          </p>
+        </article>
+      </section>
+      <section class="trust" id="security">
+        <div>
+          <p class="eyebrow">05 / BUILT AROUND TRUST</p>
+          <h2>Local by default.<br />Explicit by design.</h2>
+        </div>
+        <div>
+          <h3>No silent uploads.</h3>
+          <p>
+            Gemini, OpenAI and Claude adapters require opt-in before receiving
+            project context. Loopback models stay local. Fallback is
+            configurable, and model suggestions never execute automatically.
+          </p>
+          <h3>Evidence has limits.</h3>
+          <p>
+            Fixture benchmarks are included. No WITH/WITHOUT agent-performance
+            score is claimed. Real-device verification, semantic analysis and
+            broader release checks remain on the roadmap.
+          </p>
+          <a
+            href="https://github.com/Nagarjuna2997/android-agent-skill/blob/main/SECURITY.md"
+            >Security model ↗</a
+          >
+        </div>
+      </section>
+      <section class="closing">
+        <p class="eyebrow">OPEN SOURCE / BUILT IN THE OPEN</p>
+        <h2>Help make Android<br />agents more capable.</h2>
+        <div class="actions">
+          <a
+            class="button"
+            href="https://github.com/Nagarjuna2997/android-agent-skill"
+            >Explore the repository ↗</a
+          ><a
+            href="https://github.com/Nagarjuna2997/android-agent-skill/blob/main/ROADMAP.md"
+            >Roadmap →</a
+          >
+        </div>
+      </section>
+    </main>
+    <footer>
+      <span>ANDROID AGENT SKILL · MIT LICENSE</span>
+      <div>
+        <a
+          href="https://github.com/Nagarjuna2997/android-agent-skill/blob/main/ARCHITECTURE.md"
+          >Architecture</a
+        ><a
+          href="https://github.com/Nagarjuna2997/android-agent-skill/tree/main/benchmarks"
+          >Benchmarks</a
+        ><a
+          href="https://github.com/Nagarjuna2997/android-agent-skill/blob/main/CHANGELOG.md"
+          >Changelog</a
+        ><a href="https://github.com/Nagarjuna2997/android-agent-skill/issues"
+          >Community</a
+        >
+      </div>
+    </footer>
+    <script src="commands.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,66 @@
+{
+  "name": "android-agent-skill",
+  "version": "0.1.0",
+  "description": "Local-first Android engineering tools for coding agents: CLI, MCP, devices and evidence.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "android-agent": "dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "data",
+    "SKILL.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint packages tests scripts benchmarks",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "benchmark": "npm run build && node benchmarks/run.mjs",
+    "check": "npm run lint && npm run typecheck && npm test",
+    "prepack": "npm run build",
+    "package:test": "node scripts/package-test.mjs"
+  },
+  "dependencies": {
+    "@iarna/toml": "^2.2.5",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "ajv": "^8.20.0",
+    "commander": "^14.0.0",
+    "fast-xml-parser": "^5.5.0",
+    "ignore": "^7.0.0",
+    "sharp": "^0.35.5",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@typescript-eslint/parser": "^8.71.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.9.9",
+    "typescript": "^5.9.0"
+  },
+  "keywords": [
+    "android",
+    "adb",
+    "mcp",
+    "agent",
+    "kotlin",
+    "firebase"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nagarjuna2997/android-agent-skill.git"
+  },
+  "homepage": "https://github.com/Nagarjuna2997/android-agent-skill#readme",
+  "bugs": {
+    "url": "https://github.com/Nagarjuna2997/android-agent-skill/issues"
+  }
+}
