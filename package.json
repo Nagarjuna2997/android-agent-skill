@@ -31,7 +31,7 @@
     "@iarna/toml": "^2.2.5",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "ajv": "^8.20.0",
-    "commander": "^14.0.0",
+    "commander": "^15.0.0",
     "fast-xml-parser": "^5.5.0",
     "ignore": "^7.0.0",
     "sharp": "^0.35.5",
