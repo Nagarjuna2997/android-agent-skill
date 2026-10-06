@@ -42,7 +42,7 @@
     "@typescript-eslint/parser": "^8.71.0",
     "eslint": "^10.11.0",
     "prettier": "^3.9.9",
-    "typescript": "^5.9.0"
+    "typescript": "^7.0.2"
   },
   "keywords": [
     "android",
