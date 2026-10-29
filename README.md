@@ -4,11 +4,48 @@
 ![Stage: developer preview](https://img.shields.io/badge/stage-developer_preview-3ddc84)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
-Android Agent Skill gives AI coding agents real Android development capabilities — project analysis, Gradle builds, emulator control, UI interaction, testing, Firebase analysis, Play Store validation, screenshots, diagnostics, and more.
+Android Agent Skill teaches AI coding agents (Claude Code, Codex, Gemini CLI, Cursor and other MCP or skill-aware clients) to build modern Android apps the way an experienced Kotlin developer would, and gives them local-first tooling to inspect projects, run Gradle builds and tests, drive emulators and devices, capture screenshots and report results with evidence.
 
-**Developer preview, v0.1.0.** Working CLI and stdio MCP server with local-first execution. Static findings are bounded heuristics. Device operations require your Android SDK and a real authorized device or running emulator. Read [validation](docs/VALIDATION.md) and [limitations](ROADMAP.md) before relying on a capability.
+It has two halves that work together:
 
-## Install from source
+1. **The skill**: `SKILL.md` plus `patterns/`, `capabilities/`, `checklists/`, `docs/` and `templates/`. Dense, version-pinned Kotlin and Jetpack Compose guidance an agent loads by task: architecture patterns, 37 feature recipes, release and security checklists, a buildable app template and CI workflow. No API key, no build step; install it as a skill or point the agent at the checkout.
+2. **The tooling**: the `android-agent` CLI and stdio MCP server. Project analysis, Gradle builds, lint and tests, ADB and emulator control, UI hierarchy interaction, heuristic audits (Compose, Firebase, permissions, privacy, Play, accessibility, security), screenshots and deterministic resumable runs.
+
+**Developer preview, v0.2.0.** The skill content is written against Android 17 / API 37, AGP 9.4.0, Kotlin 2.4.20 and Compose BOM 2026.09.00 (see `data/versions.json`, verified 2026-09-29). The CLI and MCP server work locally; static findings are bounded heuristics, and device operations require your Android SDK and a real authorized device or running emulator. Read [validation](docs/VALIDATION.md) and [limitations](ROADMAP.md) before relying on a capability.
+
+## Install the skill
+
+```sh
+# Claude Code (project-local .claude/skills/android-agent-skill)
+curl -fsSL https://raw.githubusercontent.com/Nagarjuna2997/android-agent-skill/main/install.sh | bash -s -- --client claude
+
+# Codex (~/.codex/skills/android-agent-skill)
+curl -fsSL https://raw.githubusercontent.com/Nagarjuna2997/android-agent-skill/main/install.sh | bash -s -- --client codex
+
+# Cursor (.cursor/skills/android-agent-skill)
+curl -fsSL https://raw.githubusercontent.com/Nagarjuna2997/android-agent-skill/main/install.sh | bash -s -- --client cursor
+
+# Gemini CLI: prints how to use GEMINI.md
+curl -fsSL https://raw.githubusercontent.com/Nagarjuna2997/android-agent-skill/main/install.sh | bash -s -- --client gemini
+```
+
+The installer clones this repository into the client's skills directory (or fast-forwards an existing checkout). `CLAUDE.md` and `GEMINI.md` are generated copies of the `SKILL.md` body for clients that read those files from a project root. Agents should start at `patterns/README.md` and `capabilities/CATALOG.md` and open only the files a task needs; `SKILL.md` has the load-by-task table.
+
+## What the skill covers
+
+| Area | Where | Highlights |
+|---|---|---|
+| Architecture | `patterns/` | MVVM with `StateFlow` UiState, unidirectional data flow, Clean Architecture modules and convention plugins, offline-first repositories, Hilt and Koin, Navigation Compose and Navigation 3, error handling |
+| UI | `patterns/ui/` | Compose state and stability, Material 3 theming and dynamic color, adaptive layouts with `WindowSizeClass` and pane scaffolds, accessibility, animation |
+| Testing | `patterns/testing/` | ViewModel and repository tests with Turbine and a dispatcher rule, Compose UI tests, Compose Preview screenshot tests |
+| Feature recipes | `capabilities/` | 37 step-by-step recipes with dependencies, manifest entries, Kotlin implementation, verification commands and pitfalls: Room, DataStore, Retrofit and Ktor, WorkManager, notifications, deep links, biometrics, Credential Manager sign-in, Firebase Auth/Firestore/FCM/Crashlytics, Play Billing, CameraX, photo picker, Coil, Paging, Maps, location, Glance widgets, Media3, on-device AI, baseline profiles and more |
+| Platform guides | `docs/` | Agent engineering workflow, coroutines and Flow, Kotlin style, Compose side effects and performance, recommended app architecture, version compatibility and behavior changes, permissions, edge-to-edge and insets, migrating from Views |
+| Checklists | `checklists/` | Play Store submission, release, security, performance, testing, accessibility |
+| Templates | `templates/` | Single-module Compose app (Hilt, type-safe navigation, tests), GitHub Actions workflow with optional emulator job, MCP client config snippets, a style-check hook |
+
+Every guide cites versions from `data/versions.json` or says a version must be resolved from the official release page, ends with a `Verify` section naming the commands or tests that prove the work, and marks anti-patterns explicitly. Generated apps belong to their users: the skill forbids inserting maintainer branding or package identifiers into generated code.
+
+## Install the tooling from source
 
 Requires Node.js 22 or newer. Android execution additionally needs a configured JDK/SDK and trusted project Gradle wrapper.
 
@@ -111,6 +148,8 @@ npm run benchmark
 npm run package:test
 ```
 
-[Architecture](ARCHITECTURE.md) · [Current technology sources](docs/RESEARCH.md) · [Benchmarks](benchmarks/README.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
+`npm run check` also runs `npm run content:check`, which verifies that `CLAUDE.md`/`GEMINI.md` match `SKILL.md` and that every relative link in the skill content resolves. After editing `SKILL.md`, run `node scripts/sync-client-files.mjs`.
+
+[Skill entry](SKILL.md) · [Agent engineering guide](docs/agent-engineering-guide.md) · [Patterns](patterns/README.md) · [Capabilities](capabilities/CATALOG.md) · [Architecture](ARCHITECTURE.md) · [Current technology sources](docs/RESEARCH.md) · [Benchmarks](benchmarks/README.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
 Documentation website source is in `site/`. It uses static HTML, CSS and JavaScript, without external trackers or a runtime backend.

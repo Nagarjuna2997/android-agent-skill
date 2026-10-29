@@ -1,7 +1,7 @@
 {
   "name": "android-agent-skill",
-  "version": "0.1.0",
-  "description": "Local-first Android engineering tools for coding agents: CLI, MCP, devices and evidence.",
+  "version": "0.2.0",
+  "description": "Android app engineering skill and local-first tooling for coding agents: Kotlin/Compose patterns, capability recipes, checklists, templates, plus a CLI and MCP server for Gradle, devices and evidence.",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -14,6 +14,14 @@
     "dist",
     "data",
     "SKILL.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    "skill.json",
+    "patterns",
+    "capabilities",
+    "checklists",
+    "docs",
+    "templates",
     "README.md",
     "LICENSE"
   ],
@@ -23,9 +31,10 @@
     "lint": "eslint packages tests scripts benchmarks",
     "test": "npm run build && node --test tests/*.test.mjs",
     "benchmark": "npm run build && node benchmarks/run.mjs",
-    "check": "npm run lint && npm run typecheck && npm test",
+    "check": "npm run lint && npm run typecheck && npm test && npm run content:check",
     "prepack": "npm run build",
-    "package:test": "node scripts/package-test.mjs"
+    "package:test": "node scripts/package-test.mjs",
+    "content:check": "node scripts/sync-client-files.mjs --check && node scripts/check-links.mjs"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
@@ -46,10 +55,17 @@
   },
   "keywords": [
     "android",
+    "kotlin",
+    "jetpack-compose",
+    "material3",
+    "gradle",
     "adb",
     "mcp",
     "agent",
-    "kotlin",
+    "skill",
+    "claude-code",
+    "codex",
+    "gemini-cli",
     "firebase"
   ],
   "publishConfig": {

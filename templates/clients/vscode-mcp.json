@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "android-agent": {
+      "type": "stdio",
+      "command": "android-agent",
+      "args": ["--project", "${workspaceFolder}", "mcp"]
+    }
+  }
+}

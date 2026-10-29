@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "android-agent": {
+      "command": "android-agent",
+      "args": ["--project", "/absolute/path/to/android/app", "mcp"],
+      "timeout": 600000
+    }
+  }
+}

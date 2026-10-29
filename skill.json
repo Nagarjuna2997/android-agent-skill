@@ -1,0 +1,79 @@
+{
+  "name": "android-agent-skill",
+  "version": "0.2.0",
+  "description": "Android app engineering skill for Claude Code, Codex, Gemini CLI, Cursor and other coding agents: Kotlin and Jetpack Compose patterns, feature capability recipes, checklists, project templates, and a local-first CLI/MCP server for Gradle builds, devices, emulators and screenshots.",
+  "author": "Nagarjuna Reddy",
+  "homepage": "https://github.com/Nagarjuna2997/android-agent-skill",
+  "license": "MIT",
+  "keywords": [
+    "android",
+    "kotlin",
+    "jetpack-compose",
+    "material3",
+    "gradle",
+    "adb",
+    "mcp",
+    "agent",
+    "mobile",
+    "app-development"
+  ],
+  "skill": {
+    "entry": "SKILL.md",
+    "type": "system-prompt",
+    "platforms": ["android"],
+    "languages": ["kotlin"],
+    "clientFiles": {
+      "claude": "CLAUDE.md",
+      "gemini": "GEMINI.md",
+      "codex": "SKILL.md"
+    },
+    "toolchain": {
+      "androidVersion": "17",
+      "compileSdk": 37,
+      "targetSdk": 36,
+      "minimumSdk": 24,
+      "agp": "9.4.0",
+      "gradle": "9.6.0",
+      "kotlin": "2.4.20",
+      "composeBom": "2026.09.00",
+      "jdk": 17,
+      "catalog": "data/versions.json"
+    },
+    "frameworks": [
+      "compose",
+      "material3",
+      "coroutines",
+      "flow",
+      "navigation",
+      "navigation3",
+      "room",
+      "datastore",
+      "hilt",
+      "koin",
+      "workmanager",
+      "paging",
+      "camerax",
+      "media3",
+      "credentials",
+      "glance",
+      "play-billing",
+      "firebase",
+      "maps",
+      "mlkit"
+    ],
+    "sections": {
+      "patterns": "patterns/README.md",
+      "capabilities": "capabilities/CATALOG.md",
+      "checklists": "checklists/",
+      "docs": "docs/agent-engineering-guide.md",
+      "templates": "templates/README.md",
+      "tooling": "docs/COMMANDS.md"
+    }
+  },
+  "mcp": {
+    "command": "android-agent",
+    "args": ["--project", "<absolute project path>", "mcp"],
+    "transport": "stdio",
+    "notes": "Add --allow-mutations after mcp to permit Gradle and device actions. Destructive operations still require a CLI-issued confirmation grant."
+  }
+}

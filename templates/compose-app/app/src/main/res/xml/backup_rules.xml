@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Auto Backup rules for API 30 and below. Exclude anything secret or device-bound. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="device.xml" />
+</full-backup-content>

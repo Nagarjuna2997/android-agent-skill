@@ -21,6 +21,15 @@ jobs:
       - run: npm run benchmark
       - run: npm run package:test
       - run: npm audit --omit=dev --audit-level=high
+  content:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm run content:check
+      - run: bash templates/hooks/check-android-style.sh templates/compose-app
   website:
     runs-on: ubuntu-latest
     steps:

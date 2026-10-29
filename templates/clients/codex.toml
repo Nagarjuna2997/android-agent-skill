@@ -1,0 +1,7 @@
+# android-agent MCP server for OpenAI Codex CLI.
+# Merge into ~/.codex/config.toml (global) or .codex/config.toml in the project.
+# Replace the --project path with the absolute path of the Android project root.
+
+[mcp_servers.android-agent]
+command = "android-agent"
+args = ["--project", "/absolute/path/to/android/app", "mcp"]

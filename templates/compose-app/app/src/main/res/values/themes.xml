@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Base window theme. Compose owns colors and typography through AppTheme; this theme
+        only configures the window. No statusBarColor, navigationBarColor or fitsSystemWindows:
+        enableEdgeToEdge() handles the system bars on every API level.
+    -->
+    <style name="Theme.App" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+    </style>
+
+    <!-- Splash theme set on MainActivity; installSplashScreen() swaps to Theme.App at startup. -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/window_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.App</item>
+    </style>
+</resources>

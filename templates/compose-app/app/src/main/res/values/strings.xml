@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Compose App</string>
+    <string name="home_title">Home</string>
+    <string name="home_empty">No items yet. Add the first one below.</string>
+    <string name="home_new_item_label">New item</string>
+    <string name="home_add">Add</string>
+    <string name="retry">Retry</string>
+    <string name="item_detail_placeholder">Item %1$d</string>
+</resources>
