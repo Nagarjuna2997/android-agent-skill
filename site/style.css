@@ -317,6 +317,13 @@ input {
   background: transparent;
   font-size: 12px;
 }
+.commandrow a {
+  text-decoration: none;
+}
+.commandrow a code {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .commandrow p {
   margin: 0;
   font-size: 13px;

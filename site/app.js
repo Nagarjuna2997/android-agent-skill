@@ -42,3 +42,40 @@ for (const button of document.querySelectorAll("[data-copy]"))
       button.textContent = "Select text to copy";
     }
   });
+
+const recipeList = document.querySelector("#recipe-list"),
+  recipeSearch = document.querySelector("#recipe-search");
+function renderRecipes() {
+  recipeList.replaceChildren();
+  const query = recipeSearch.value.toLowerCase();
+  const rows = (window.capabilityCatalog ?? []).filter((c) =>
+    (c.id + " " + c.name + " " + c.category + " " + c.summary)
+      .toLowerCase()
+      .includes(query),
+  );
+  for (const row of rows) {
+    const el = document.createElement("div");
+    el.className = "commandrow";
+    const link = document.createElement("a");
+    link.href =
+      "https://github.com/Nagarjuna2997/android-agent-skill/blob/main/" +
+      row.path;
+    const code = document.createElement("code");
+    code.textContent = row.id;
+    link.append(code);
+    const desc = document.createElement("p");
+    desc.textContent = row.summary;
+    const badge = document.createElement("span");
+    badge.className = "badge";
+    badge.textContent = row.category.toUpperCase();
+    el.append(link, desc, badge);
+    recipeList.append(el);
+  }
+  if (!rows.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "No matching recipes. Try a broader term.";
+    recipeList.append(empty);
+  }
+}
+recipeSearch.addEventListener("input", renderRecipes);
+renderRecipes();

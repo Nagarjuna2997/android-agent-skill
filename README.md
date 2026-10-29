@@ -3,6 +3,9 @@
 [![CI](https://github.com/Nagarjuna2997/android-agent-skill/actions/workflows/ci.yml/badge.svg)](https://github.com/Nagarjuna2997/android-agent-skill/actions/workflows/ci.yml)
 ![Stage: developer preview](https://img.shields.io/badge/stage-developer_preview-3ddc84)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
+[![Site](https://img.shields.io/badge/site-nagarjuna2997.github.io%2Fandroid--agent--skill-3ddc84)](https://nagarjuna2997.github.io/android-agent-skill/)
+
+Website: [nagarjuna2997.github.io/android-agent-skill](https://nagarjuna2997.github.io/android-agent-skill/) (install commands, searchable recipe catalog and CLI reference).
 
 Android Agent Skill teaches AI coding agents (Claude Code, Codex, Gemini CLI, Cursor and other MCP or skill-aware clients) to build modern Android apps the way an experienced Kotlin developer would, and gives them local-first tooling to inspect projects, run Gradle builds and tests, drive emulators and devices, capture screenshots and report results with evidence.
 
@@ -152,4 +155,6 @@ npm run package:test
 
 [Skill entry](SKILL.md) · [Agent engineering guide](docs/agent-engineering-guide.md) · [Patterns](patterns/README.md) · [Capabilities](capabilities/CATALOG.md) · [Architecture](ARCHITECTURE.md) · [Current technology sources](docs/RESEARCH.md) · [Benchmarks](benchmarks/README.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
-Documentation website source is in `site/`. It uses static HTML, CSS and JavaScript, without external trackers or a runtime backend.
+## Website
+
+The documentation site at [nagarjuna2997.github.io/android-agent-skill](https://nagarjuna2997.github.io/android-agent-skill/) is built from `site/` (static HTML, CSS and JavaScript, no trackers, no backend) and deployed to GitHub Pages by `.github/workflows/pages.yml` on every push to `main` that touches the site or the capability catalog. The recipe list on the site is rendered from `capabilities/catalog.json`; after editing the catalog run `node scripts/render-site-catalog.mjs` (CI fails if `site/capabilities.js` is stale). The CLI reference comes from `node scripts/inventory.mjs`.

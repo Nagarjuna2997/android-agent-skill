@@ -34,7 +34,7 @@
     "check": "npm run lint && npm run typecheck && npm test && npm run content:check",
     "prepack": "npm run build",
     "package:test": "node scripts/package-test.mjs",
-    "content:check": "node scripts/sync-client-files.mjs --check && node scripts/check-links.mjs"
+    "content:check": "node scripts/sync-client-files.mjs --check && node scripts/render-site-catalog.mjs --check && node scripts/check-links.mjs"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
@@ -75,7 +75,7 @@
     "type": "git",
     "url": "git+https://github.com/Nagarjuna2997/android-agent-skill.git"
   },
-  "homepage": "https://github.com/Nagarjuna2997/android-agent-skill#readme",
+  "homepage": "https://nagarjuna2997.github.io/android-agent-skill/",
   "bugs": {
     "url": "https://github.com/Nagarjuna2997/android-agent-skill/issues"
   }

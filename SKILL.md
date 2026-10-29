@@ -6,7 +6,7 @@ license: MIT
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 metadata:
   author: Nagarjuna Reddy
-  homepage: https://github.com/Nagarjuna2997/android-agent-skill
+  homepage: https://nagarjuna2997.github.io/android-agent-skill/
   languages: [kotlin]
   platforms: [android]
   entry: SKILL.md

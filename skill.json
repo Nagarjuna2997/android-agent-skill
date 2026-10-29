@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "description": "Android app engineering skill for Claude Code, Codex, Gemini CLI, Cursor and other coding agents: Kotlin and Jetpack Compose patterns, feature capability recipes, checklists, project templates, and a local-first CLI/MCP server for Gradle builds, devices, emulators and screenshots.",
   "author": "Nagarjuna Reddy",
-  "homepage": "https://github.com/Nagarjuna2997/android-agent-skill",
+  "homepage": "https://nagarjuna2997.github.io/android-agent-skill/",
   "license": "MIT",
   "keywords": [
     "android",
@@ -20,8 +20,12 @@
   "skill": {
     "entry": "SKILL.md",
     "type": "system-prompt",
-    "platforms": ["android"],
-    "languages": ["kotlin"],
+    "platforms": [
+      "android"
+    ],
+    "languages": [
+      "kotlin"
+    ],
     "clientFiles": {
       "claude": "CLAUDE.md",
       "gemini": "GEMINI.md",
@@ -72,7 +76,11 @@
   },
   "mcp": {
     "command": "android-agent",
-    "args": ["--project", "<absolute project path>", "mcp"],
+    "args": [
+      "--project",
+      "<absolute project path>",
+      "mcp"
+    ],
     "transport": "stdio",
     "notes": "Add --allow-mutations after mcp to permit Gradle and device actions. Destructive operations still require a CLI-issued confirmation grant."
   }

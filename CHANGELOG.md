@@ -11,6 +11,7 @@ Added the engineering skill half of the project alongside the existing tooling:
 - `docs/`: agent engineering guide, coroutines and Flow, Kotlin style, Compose side effects and performance, app architecture, versions and compatibility, permissions, edge-to-edge and insets, migrating from Views.
 - `templates/`: single-module Compose app template, GitHub Actions workflow, MCP client configuration snippets, `check-android-style.sh` hook.
 - `scripts/check-links.mjs` and the `content:check` script, run by `npm run check` and a new CI job.
+- Documentation site deployed to GitHub Pages at https://nagarjuna2997.github.io/android-agent-skill/ by `.github/workflows/pages.yml`; the site gains a skill section and a searchable recipe catalog rendered from `capabilities/catalog.json` by `scripts/render-site-catalog.mjs`.
 
 All content is written against `data/versions.json` (verified 2026-09-29). Versions outside that catalog are left as `<version>` placeholders with the official release page. No Android SDK build of the template was run in the authoring environment; nothing in this release claims a verified device or build result.
 
