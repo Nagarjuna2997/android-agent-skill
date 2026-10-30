@@ -223,6 +223,304 @@ Note that when the system animator scale is 0, Compose animations still run (the
 - `AnimatedVisibility` and `AnimatedContent` keep both old and new content composed during the transition; heavy screens should key `AnimatedContent` on a small value and load data outside it.
 - Use the Animation Preview in Android Studio (the clock icon on a `@Preview`) to scrub transitions without a device.
 
+## Patterns from the Compose samples
+
+Four motion patterns studied in `android/compose-samples` ([../../references/compose-samples.md](../../references/compose-samples.md)) and re-implemented here.
+
+### Animated custom drawing (JetLagged)
+
+A chart that expands on tap: the bar height and a progress fraction come from one `updateTransition`; the `Path`, `Brush` and `Stroke` are built in `drawWithCache` and only redrawn when the animated values change. Reading the animated values inside `drawWithCache` keeps the work in the draw phase; the composable itself does not recompose per frame.
+
+```kotlin
+package com.example.app.ui.chart
+
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDp
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
+
+/** One segment of a stacked timeline: a fraction of the total width and a lane index 0..lanes-1. */
+data class Segment(val startFraction: Float, val widthFraction: Float, val lane: Int)
+
+@Composable
+fun ExpandingTimeline(segments: List<Segment>, lanes: Int, colors: List<Color>, modifier: Modifier = Modifier) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val transition = updateTransition(targetState = expanded, label = "timeline")
+    val bouncy = spring<Float>(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow)
+
+    val height by transition.animateDp(label = "height", transitionSpec = { spring(Spring.DampingRatioLowBouncy, Spring.StiffnessLow) }) {
+        if (it) 96.dp else 24.dp
+    }
+    val progress by transition.animateFloat(label = "progress", transitionSpec = { bouncy }) { if (it) 1f else 0f }
+
+    Spacer(
+        modifier
+            .fillMaxWidth()
+            .height(height)
+            .clickable { expanded = !expanded }
+            .drawWithCache {
+                // Everything here re-runs only when size, progress or the inputs change.
+                val laneHeight = size.height / lanes
+                val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, pathEffect = PathEffect.cornerPathEffect(8.dp.toPx() * progress))
+                val clip = Path().apply {
+                    addRoundRect(RoundRect(Rect(0f, 0f, size.width, size.height), CornerRadius(lerp(12.dp.toPx(), 4.dp.toPx(), progress))))
+                }
+                val graph = Path().apply {
+                    segments.forEachIndexed { index, segment ->
+                        val x = segment.startFraction * size.width
+                        val w = segment.widthFraction * size.width
+                        // Collapsed: every segment sits in lane 0. Expanded: in its own lane.
+                        val y = lerp(0f, segment.lane * laneHeight, progress)
+                        if (index > 0) lineTo(x, y + laneHeight / 2f)
+                        addRect(Rect(offset = Offset(x, y), size = Size(w, laneHeight)))
+                        moveTo(x + w, y + laneHeight / 2f)
+                    }
+                }
+                val brush = Brush.verticalGradient(colors, startY = 0f, endY = size.height)
+                onDrawBehind {
+                    clipPath(clip) {
+                        drawPath(graph, brush)
+                        drawPath(graph, brush, style = stroke)
+                    }
+                }
+            },
+    )
+}
+```
+
+The full drawing toolkit (text on canvas, `graphicsLayer`, custom layout modifiers, shaders) is in [../../capabilities/compose-drawing-and-graphics/README.md](../../capabilities/compose-drawing-and-graphics/README.md).
+
+### Shared bounds, bottom bar and list animations (Jetsnack)
+
+Jetsnack extends the shared element pattern above in three ways worth keeping.
+
+One `BoundsTransform` and two springs for the whole app, so every transition has the same feel. Material 3 1.4.0's `MotionScheme` is the themed equivalent; until the project opts into Expressive, define them once:
+
+```kotlin
+package com.example.app.ui.motion
+
+import androidx.compose.animation.BoundsTransform
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.core.spring
+
+// Technique from android/compose-samples Jetsnack (Apache-2.0): spatial motion is slightly
+// underdamped, non-spatial (fades) is critically damped and fast.
+fun <T> spatialSpring() = spring<T>(dampingRatio = 0.8f, stiffness = 380f)
+fun <T> effectsSpring() = spring<T>(dampingRatio = 1f, stiffness = 1600f)
+
+@OptIn(ExperimentalSharedTransitionApi::class)
+val AppBoundsTransform = BoundsTransform { _, _ -> spatialSpring() }
+```
+
+`sharedBounds` for containers whose content differs between screens, with an animated corner clip and text that must not stretch:
+
+```kotlin
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+fun ProductDetailContainer(
+    productId: String,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    content: @Composable () -> Unit,
+) {
+    // Corners are round while the card is small and square once it fills the screen.
+    val corner by animatedVisibilityScope.transition.animateDp(label = "corner") { state ->
+        if (state == EnterExitState.Visible) 0.dp else 20.dp
+    }
+    with(sharedTransitionScope) {
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(corner))
+                .sharedBounds(
+                    sharedContentState = rememberSharedContentState(key = "product-$productId-bounds"),
+                    animatedVisibilityScope = animatedVisibilityScope,
+                    boundsTransform = AppBoundsTransform,
+                    clipInOverlayDuringTransition = OverlayClip(RoundedCornerShape(corner)),
+                    enter = fadeIn(effectsSpring()),
+                    exit = fadeOut(effectsSpring()),
+                )
+                .fillMaxSize(),
+        ) {
+            // Text inside a growing container: measure at the final size so it does not
+            // reflow on every frame.
+            Column(Modifier.skipToLookaheadSize()) { content() }
+        }
+    }
+}
+```
+
+Give each shared element a typed key (`data class SharedKey(val id: String, val origin: String, val part: Part)`) when the same item can appear in several lists on the origin screen; a plain `"image-$id"` string collides when the item is in two carousels.
+
+A bottom bar that slides out while the detail opens, rendered above the transition overlay so the expanding card does not cover it:
+
+```kotlin
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+fun HomeBottomBar(sharedTransitionScope: SharedTransitionScope, animatedVisibilityScope: AnimatedVisibilityScope) {
+    with(sharedTransitionScope) {
+        with(animatedVisibilityScope) {
+            NavigationBar(
+                modifier = Modifier
+                    .renderInSharedTransitionScopeOverlay(zIndexInOverlay = 1f)
+                    .animateEnterExit(
+                        enter = fadeIn(effectsSpring()) + slideInVertically(spatialSpring()) { it },
+                        exit = fadeOut(effectsSpring()) + slideOutVertically(spatialSpring()) { it },
+                    ),
+            ) { /* items */ }
+        }
+    }
+}
+```
+
+`AnimatedVisibility` in a list wrapping `SwipeToDismissBox`, so a dismissed row shrinks instead of disappearing on the next recomposition. Combine with `Modifier.animateItem()` for the rows that move up:
+
+```kotlin
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DismissibleRow(onDismissed: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    val dismissState = rememberSwipeToDismissBoxState()
+    val dismissed = dismissState.currentValue == SwipeToDismissBoxValue.EndToStart
+    LaunchedEffect(dismissed) { if (dismissed) onDismissed() }   // tell the ViewModel after the gesture settles
+
+    AnimatedVisibility(visible = !dismissed, enter = expandVertically(), exit = shrinkVertically(), modifier = modifier) {
+        SwipeToDismissBox(
+            state = dismissState,
+            enableDismissFromStartToEnd = false,
+            backgroundContent = { DismissBackground(progress = dismissState.progress) },
+            content = { content() },
+        )
+    }
+}
+
+// In the list:
+items(cart, key = { it.id }) { line ->
+    DismissibleRow(onDismissed = { onRemove(line.id) }, modifier = Modifier.animateItem()) { CartLine(line) }
+}
+```
+
+### Jump-to-bottom and keyboard-aware input (Jetchat)
+
+A reversed message list (`reverseLayout = true`, newest at index 0) with a button that appears once the user has scrolled away from the bottom, and an input bar that rises with the keyboard while its background still extends behind the navigation bar.
+
+```kotlin
+package com.example.app.ui.chat
+
+import androidx.compose.animation.core.animateDp
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+
+@Composable
+fun ChatScreen(messages: List<Message>, onSend: (String) -> Unit) {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    Scaffold(
+        bottomBar = {
+            MessageInput(
+                onSend = { text ->
+                    onSend(text)
+                    scope.launch { listState.scrollToItem(0) }
+                },
+                // The input owns the IME and navigation-bar insets so its surface color extends
+                // behind the navigation bar and the whole bar lifts with the keyboard.
+                modifier = Modifier.imePadding().navigationBarsPadding(),
+            )
+        },
+        // Technique from android/compose-samples Jetchat (Apache-2.0): exclude what the input
+        // pads itself, or the content is padded twice.
+        contentWindowInsets = ScaffoldDefaults.contentWindowInsets
+            .exclude(WindowInsets.navigationBars)
+            .exclude(WindowInsets.ime),
+    ) { padding ->
+        Box(Modifier.fillMaxSize()) {
+            LazyColumn(state = listState, reverseLayout = true, contentPadding = padding, modifier = Modifier.fillMaxSize()) {
+                items(messages, key = { it.id }, contentType = { "message" }) { MessageBubble(it) }
+            }
+
+            val thresholdPx = with(LocalDensity.current) { 56.dp.toPx() }
+            // Flips rarely; the list state changes on every scrolled pixel.
+            val showJump by remember {
+                derivedStateOf { listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset > thresholdPx }
+            }
+            JumpToBottom(
+                visible = showJump,
+                onClick = { scope.launch { listState.animateScrollToItem(0) } },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = padding.calculateBottomPadding()),
+            )
+        }
+    }
+}
+
+@Composable
+fun JumpToBottom(visible: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val transition = updateTransition(visible, label = "jumpToBottom")
+    val offset by transition.animateDp(label = "offset") { if (it) 24.dp else (-40).dp }
+    if (offset > (-40).dp) {   // keep it composed until fully off-screen so the exit animates
+        ExtendedFloatingActionButton(
+            text = { Text("Jump to bottom") },
+            icon = { Icon(Icons.Filled.ArrowDownward, contentDescription = null) },
+            onClick = onClick,
+            modifier = modifier.offset { IntOffset(x = 0, y = -offset.roundToPx()) },   // layout phase only
+        )
+    }
+}
+```
+
+Two related APIs:
+
+- `Modifier.imeNestedScroll()` (`androidx.compose.foundation.layout`, `@ExperimentalLayoutApi`) on the scrollable list lets an overscroll at the bottom drag the keyboard open or closed on API 30+. Add it only to the list, not to the input.
+- `WindowInsets.isImeVisible` plus `LaunchedEffect` to scroll to the newest message when the keyboard opens, if the product wants that; most chat apps do not.
+
+Insets fundamentals are in [../../docs/android/edge-to-edge-and-insets.md](../../docs/android/edge-to-edge-and-insets.md).
+
 ## Avoid
 
 ```kotlin
@@ -262,3 +560,6 @@ Record the screen with "Profile GPU rendering" on and confirm no frames over 16 
 - https://developer.android.com/develop/ui/compose/animation/tooling
 - https://m3.material.io/styles/motion/overview
 - https://developer.android.com/jetpack/androidx/releases/compose-material3
+- https://developer.android.com/develop/ui/compose/graphics/draw/modifiers
+- https://developer.android.com/develop/ui/compose/layouts/insets
+- https://github.com/android/compose-samples (JetLagged, Jetsnack, Jetchat; see [../../references/compose-samples.md](../../references/compose-samples.md))

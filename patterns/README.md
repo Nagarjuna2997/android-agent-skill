@@ -20,11 +20,11 @@ Start with `mvvm.md`; everything else builds on it.
 
 | File | When to use it | Summary |
 |---|---|---|
-| [ui/compose-state.md](ui/compose-state.md) | Before writing any non-trivial composable | State hoisting, stateless vs stateful, `remember`/`rememberSaveable`, `derivedStateOf`, stability and `@Immutable`/`@Stable`, lambdas, snapshot collections, lazy list keys |
-| [ui/material3-theming.md](ui/material3-theming.md) | Setting up or changing the app theme | `MaterialTheme` with color scheme, dynamic color, typography, shapes, dark theme, custom tokens via `CompositionLocal`, Material 3 Expressive notes |
-| [ui/adaptive-layouts.md](ui/adaptive-layouts.md) | Any app shipping to tablets, foldables or ChromeOS | `WindowSizeClass` from window 1.5.1, `ListDetailPaneScaffold`, `NavigationSuiteScaffold`, foldable posture, orientation and configuration changes |
-| [ui/accessibility.md](ui/accessibility.md) | Every screen before it ships | Semantics, `contentDescription`, merging, 48 dp targets, font scaling, reduced motion, contrast, testing with the semantics tree and Accessibility Scanner |
-| [ui/animation.md](ui/animation.md) | Any motion beyond Material defaults | `animate*AsState`, `AnimatedVisibility`, `AnimatedContent`, `updateTransition`, shared elements, `MotionScheme`, respecting reduced motion |
+| [ui/compose-state.md](ui/compose-state.md) | Before writing any non-trivial composable | State hoisting, stateless vs stateful, `remember`/`rememberSaveable`, `derivedStateOf`, stability and `@Immutable`/`@Stable`, lambdas, snapshot collections, lazy list keys, custom `Saver`/`rememberSerializable`, `rememberXState` holders, `LazyListState` effects |
+| [ui/material3-theming.md](ui/material3-theming.md) | Setting up or changing the app theme | `MaterialTheme` with color scheme, dynamic color, typography, shapes, dark theme, custom tokens via `CompositionLocal`, contrast-level schemes, a fully custom design system, Material 3 Expressive notes |
+| [ui/adaptive-layouts.md](ui/adaptive-layouts.md) | Any app shipping to tablets, foldables or ChromeOS | `WindowSizeClass` from window 1.5.1, `ListDetailPaneScaffold`, `NavigationSuiteScaffold` and choosing the suite yourself, the `isExpandedScreen` two-pane shell, multi-form-factor module layout, foldable posture, orientation and configuration changes |
+| [ui/accessibility.md](ui/accessibility.md) | Every screen before it ships | Semantics, `contentDescription`, merging, custom actions and click labels, custom semantics keys for tests, 48 dp targets, font scaling, reduced motion, contrast, testing with the semantics tree and Accessibility Scanner |
+| [ui/animation.md](ui/animation.md) | Any motion beyond Material defaults | `animate*AsState`, `AnimatedVisibility`, `AnimatedContent`, `updateTransition`, shared elements and bounds, animated custom drawing, keyboard-aware input, `MotionScheme`, respecting reduced motion |
 
 ## Testing
 

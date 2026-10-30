@@ -361,6 +361,120 @@ internal class PushWorker @AssistedInject constructor(
 
 WorkManager 2.12.0 with `androidx.hilt:hilt-work:1.4.0` for `@HiltWorker`. The `WorkManager` instance is provided by a Hilt module with `WorkManager.getInstance(context)`; see [dependency-injection.md](dependency-injection.md). Pull-to-refresh and app start call `repository.refresh()` directly from the ViewModel; the worker only handles pushes.
 
+## Seeding the database from bundled assets
+
+Some apps ship a starter dataset (a plant catalog, a list of exercises, currency codes) that must exist before the first network refresh. Google's Sunflower sample does this with a `RoomDatabase.Callback` whose `onCreate` enqueues a WorkManager job that parses `assets/<file>.json` and upserts the rows. The shape has three properties worth keeping: it runs exactly once per install (the database file is created once), it survives process death mid-parse (WorkManager retries), and it never blocks the first query (the UI shows an empty state, then rows appear through the DAO `Flow`).
+
+Two things change from the sample: kotlinx.serialization instead of Gson, and Hilt instead of a static `AppDatabase.getInstance`. The second needs care, because the worker must not construct the database that is being created; it receives the DAO from the graph, which resolves lazily after `build()` returns.
+
+```kotlin
+package com.example.app.data.seed
+
+import android.content.Context
+import androidx.hilt.work.HiltWorker
+import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkerParameters
+import androidx.work.workDataOf
+import com.example.app.core.database.PlantDao
+import com.example.app.core.database.PlantEntity
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromStream
+
+/**
+ * Technique from android/sunflower (Apache-2.0): enqueue the seed from onCreate so it runs once
+ * per database file. KEEP makes a second enqueue (process killed between onCreate and the
+ * worker start) a no-op.
+ */
+class SeedOnCreateCallback(private val context: Context) : RoomDatabase.Callback() {
+    override fun onCreate(db: SupportSQLiteDatabase) {
+        super.onCreate(db)
+        val request = OneTimeWorkRequestBuilder<SeedDatabaseWorker>()
+            .setInputData(workDataOf(SeedDatabaseWorker.KEY_FILENAME to "plants.json"))
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork("seed-database", ExistingWorkPolicy.KEEP, request)
+    }
+}
+
+@HiltWorker
+class SeedDatabaseWorker @AssistedInject constructor(
+    @Assisted context: Context,
+    @Assisted params: WorkerParameters,
+    private val plantDao: PlantDao,
+    private val json: Json,
+) : CoroutineWorker(context, params) {
+
+    override suspend fun doWork(): Result {
+        val fileName = inputData.getString(KEY_FILENAME) ?: return Result.failure()
+        return try {
+            val rows = applicationContext.assets.open(fileName).use { stream ->
+                json.decodeFromStream<List<PlantEntity>>(stream)
+            }
+            plantDao.upsertAll(rows)          // idempotent: a retry after a partial write is safe
+            Result.success()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: java.io.IOException) {
+            if (runAttemptCount < 3) Result.retry() else Result.failure()
+        } catch (e: kotlinx.serialization.SerializationException) {
+            Result.failure()                  // a malformed bundled file is a build bug, not transient
+        }
+    }
+
+    companion object { const val KEY_FILENAME = "seed_file" }
+}
+```
+
+Wiring in the database module (compare the plain `provideDatabase` in [../capabilities/room-database/README.md](../capabilities/room-database/README.md)):
+
+```kotlin
+@Provides
+@Singleton
+fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
+    Room.databaseBuilder(context, AppDatabase::class.java, "app.db")
+        .addCallback(SeedOnCreateCallback(context))
+        .build()
+```
+
+`WorkManager.getInstance(context)` inside the callback requires WorkManager to be initialized with the Hilt `HiltWorkerFactory` (the `Configuration.Provider` setup in [../capabilities/hilt-di/README.md](../capabilities/hilt-di/README.md)); without it the `@HiltWorker` cannot be constructed and the job fails silently in logcat.
+
+Alternatives, and when to pick them:
+
+- `createFromAsset("database/seed.db")` on the builder, when the dataset is large (thousands of rows) or static: a prebuilt SQLite file copied at creation, no parsing, no worker. The schema in the file must match the entities exactly and every version bump needs a new file or a migration.
+- A one-time `refresh()` on first launch, when the data is already on the server and a network round trip at install time is acceptable. Offline-first apps usually want the bundled seed and the refresh.
+
+Test the worker on the JVM with Robolectric and WorkManager's testing helpers:
+
+```kotlin
+@RunWith(RobolectricTestRunner::class)
+class SeedDatabaseWorkerTest {
+    @Test fun seedsRowsFromAsset() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
+        val worker = TestListenableWorkerBuilder<SeedDatabaseWorker>(
+            context = context,
+            inputData = workDataOf(SeedDatabaseWorker.KEY_FILENAME to "plants.json"),
+        ).setWorkerFactory(object : WorkerFactory() {
+            override fun createWorker(appContext: Context, workerClassName: String, params: WorkerParameters) =
+                SeedDatabaseWorker(appContext, params, db.plantDao(), Json { ignoreUnknownKeys = true })
+        }).build()
+
+        assertEquals(ListenableWorker.Result.success(), worker.doWork())
+        assertTrue(db.plantDao().count() > 0)
+        db.close()
+    }
+}
+```
+
+The fixture file lives in `src/main/assets/plants.json` so the test reads the real bundled data; a schema change that breaks parsing fails this test before it ships.
+
 ## Using it from a ViewModel
 
 ```kotlin
@@ -458,3 +572,6 @@ adb shell dumpsys jobscheduler | grep -A3 "todo-push"   # WorkManager job queued
 - https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started
 - https://developer.android.com/jetpack/androidx/releases/room
 - https://developer.android.com/jetpack/androidx/releases/work
+- https://developer.android.com/training/data-storage/room/prepopulate
+- https://developer.android.com/develop/background-work/background-tasks/testing/persistent
+- https://github.com/android/sunflower (see [../references/sunflower.md](../references/sunflower.md))

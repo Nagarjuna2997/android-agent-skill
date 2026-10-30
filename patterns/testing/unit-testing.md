@@ -221,6 +221,291 @@ class TodoRepositoryImplTest {
 
 Migrations: with `exportSchema = true` and `androidx.room:room-testing`, `MigrationTestHelper` validates that each migration produces the expected schema. Run those as instrumented tests; Robolectric's SQLite differs from the device's in edge cases.
 
+## Test doubles as Gradle modules
+
+In a multi-module project (see [../clean-architecture.md](../clean-architecture.md)) the fakes, the dispatcher rule and the Hilt test modules are shared code with their own dependencies. Now in Android (see [../../references/nowinandroid.md](../../references/nowinandroid.md)) splits them into two modules; the split keeps JVM unit tests free of Hilt while instrumented tests get a whole fake data layer.
+
+```
+core/
+  testing/      main source set: MainDispatcherRule, Test*Repository doubles, test data, TestDispatcherModule, AppTestRunner
+  data-test/    main source set: TestDataModule (@TestInstallIn replacing DataModule) binding the doubles above
+```
+
+Both are ordinary Android library modules with `main` source sets (not `test`), consumed with `testImplementation(project(":core:testing"))` and `androidTestImplementation(project(":core:data-test"))`. A `debugImplementation` on `:core:testing` lets previews use the doubles too.
+
+```kotlin
+// core/testing/build.gradle.kts
+plugins {
+    id("com.example.android.library")
+    id("com.example.android.library.hilt")
+}
+android { namespace = "com.example.app.core.testing" }
+dependencies {
+    api(libs.kotlinx.coroutines.test)        // api: every consumer writes runTest
+    api(project(":core:common"))
+    api(project(":core:data"))               // the interfaces the doubles implement
+    api(project(":core:model"))
+    implementation(libs.androidx.test.rules)
+    implementation(libs.hilt.android.testing)
+}
+```
+
+The doubles follow the fake style above and add a test-only push method so a test can drive emissions after the ViewModel subscribed:
+
+```kotlin
+// core/testing/src/main/kotlin/com/example/app/core/testing/repository/TestNotesRepository.kt
+package com.example.app.core.testing.repository
+
+import com.example.app.core.data.repository.NotesRepository
+import com.example.app.core.data.sync.Synchronizer
+import com.example.app.core.model.Note
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class TestNotesRepository @Inject constructor() : NotesRepository {
+    private val notes = MutableStateFlow<List<Note>>(emptyList())
+
+    override fun observeAll(): Flow<List<Note>> = notes
+    override fun observe(id: String): Flow<Note?> = notes.map { list -> list.firstOrNull { it.id == id } }
+    override suspend fun setArchived(id: String, archived: Boolean) =
+        notes.update { list -> list.map { if (it.id == id) it.copy(isArchived = archived) else it } }
+    override suspend fun syncWith(synchronizer: Synchronizer): Boolean = true
+
+    /** Test-only: replace the whole list; subscribers see the new value immediately. */
+    fun sendNotes(value: List<Note>) { notes.value = value }
+}
+```
+
+```kotlin
+// core/testing/src/main/kotlin/com/example/app/core/testing/di/TestDispatcherModule.kt
+package com.example.app.core.testing.di
+
+import com.example.app.core.common.IoDispatcher
+import com.example.app.core.common.di.DispatchersModule
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.components.SingletonComponent
+import dagger.hilt.testing.TestInstallIn
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
+import javax.inject.Singleton
+
+/** One scheduler for the whole Hilt graph in instrumented tests, injectable into the test class as TestDispatcher. */
+@Module
+@TestInstallIn(components = [SingletonComponent::class], replaces = [DispatchersModule::class])
+internal object TestDispatcherModule {
+    @Provides @Singleton fun provideTestDispatcher(): TestDispatcher = StandardTestDispatcher()
+    @Provides @IoDispatcher fun provideIo(dispatcher: TestDispatcher): CoroutineDispatcher = dispatcher
+}
+```
+
+The runner that makes `@HiltAndroidTest` work on a device without a test `Application` subclass per module:
+
+```kotlin
+// core/testing/src/main/kotlin/com/example/app/core/testing/AppTestRunner.kt
+package com.example.app.core.testing
+
+import android.app.Application
+import android.content.Context
+import androidx.test.runner.AndroidJUnitRunner
+import dagger.hilt.android.testing.HiltTestApplication
+
+class AppTestRunner : AndroidJUnitRunner() {
+    override fun newApplication(cl: ClassLoader, name: String, context: Context): Application =
+        super.newApplication(cl, HiltTestApplication::class.java.name, context)
+}
+```
+
+Set `testInstrumentationRunner = "com.example.app.core.testing.AppTestRunner"` in the library convention plugin so every module uses it.
+
+`:core:data-test` replaces the real data bindings in one place:
+
+```kotlin
+// core/data-test/src/main/kotlin/com/example/app/core/data/test/TestDataModule.kt
+package com.example.app.core.data.test
+
+import com.example.app.core.data.di.DataModule
+import com.example.app.core.data.repository.NotesRepository
+import com.example.app.core.data.repository.UserDataRepository
+import com.example.app.core.data.sync.SyncManager
+import com.example.app.core.testing.repository.TestNotesRepository
+import com.example.app.core.testing.repository.TestUserDataRepository
+import com.example.app.core.testing.util.NeverSyncingSyncManager
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.components.SingletonComponent
+import dagger.hilt.testing.TestInstallIn
+
+@Module
+@TestInstallIn(components = [SingletonComponent::class], replaces = [DataModule::class])
+internal interface TestDataModule {
+    @Binds fun bindNotes(impl: TestNotesRepository): NotesRepository
+    @Binds fun bindUserData(impl: TestUserDataRepository): UserDataRepository
+    @Binds fun bindSyncManager(impl: NeverSyncingSyncManager): SyncManager
+}
+```
+
+`@TestInstallIn` is processed by the Hilt compiler in the module that applies it, which is why `:core:data-test` is a library with the Hilt plugin rather than a `test` source set: every instrumented test that depends on it gets the replacement without `@UninstallModules`. The doubles carry `@Inject constructor()` and `@Singleton` so a test can `@Inject lateinit var notes: TestNotesRepository` and push data into the same instance the ViewModel reads.
+
+A ViewModel test then needs no Hilt at all:
+
+```kotlin
+class NotesViewModelTest {
+    @get:Rule val mainDispatcherRule = MainDispatcherRule()
+    private val notes = TestNotesRepository()
+    private val viewModel = NotesViewModel(notes = notes, syncManager = NeverSyncingSyncManager())
+
+    @Test fun `emits Success once the repository has data`() = runTest {
+        viewModel.uiState.test {
+            assertEquals(NotesUiState.Loading, awaitItem())
+            notes.sendNotes(listOf(Note("1", "First", isArchived = false)))
+            assertEquals(listOf("1"), (awaitItem() as NotesUiState.Success).notes.map { it.id })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+}
+```
+
+## Screenshot tests with Roborazzi under Robolectric
+
+[screenshot-testing.md](screenshot-testing.md) covers Compose Preview Screenshot Testing, which renders `@Preview`s with layoutlib. Now in Android uses the other JVM option: Roborazzi (`io.github.takahirom.roborazzi`, `<version>` from https://github.com/takahirom/roborazzi/releases) renders through Robolectric's native graphics, so the screenshot comes from the same Compose test rule you already use, can include a full screen with state, and can run the Accessibility Test Framework checks on the rendered tree. Pick one of the two per project; both in one module doubles the reference images to maintain.
+
+Setup, in the module that owns the composables under test:
+
+```kotlin
+// core/designsystem/build.gradle.kts (and each feature impl module with screenshot tests)
+plugins {
+    id("com.example.android.library.compose")
+    id("io.github.takahirom.roborazzi") version "<version>"
+}
+android { testOptions.unitTests.isIncludeAndroidResources = true }
+dependencies {
+    testImplementation(project(":core:screenshot-testing"))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.androidx.compose.ui.test.manifest)
+    testImplementation("org.robolectric:robolectric:<version>")
+}
+```
+
+```properties
+# gradle.properties
+roborazzi.test.verify=true     # testDebugUnitTest compares against src/test/screenshots; record with recordRoborazziDebug
+```
+
+A small `:core:screenshot-testing` module holds the helper so every test is three lines. Original re-implementation of the idea:
+
+```kotlin
+// core/screenshot-testing/src/main/kotlin/com/example/app/core/screenshottesting/Screenshots.kt
+package com.example.app.core.screenshottesting
+
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.test.DarkMode
+import androidx.compose.ui.test.DeviceConfigurationOverride
+import androidx.compose.ui.test.junit4.AndroidComposeTestRule
+import androidx.compose.ui.test.onRoot
+import androidx.test.ext.junit.rules.ActivityScenarioRule
+import com.github.takahirom.roborazzi.RoborazziOptions
+import com.github.takahirom.roborazzi.captureRoboImage
+import org.robolectric.RuntimeEnvironment
+
+/** Device specs as Robolectric qualifiers; keep the list short, each entry is one PNG per test. */
+enum class ScreenshotDevice(val label: String, val qualifiers: String) {
+    PHONE("phone", "w411dp-h891dp-480dpi"),
+    FOLDABLE("foldable", "w673dp-h841dp-480dpi"),
+    TABLET("tablet", "w1280dp-h800dp-480dpi"),
+}
+
+private val options = RoborazziOptions(
+    compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0f),   // pixel-exact; raise only for antialiasing noise
+    recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),        // halves PNG size in the repository
+)
+
+fun <A : ComponentActivity> AndroidComposeTestRule<ActivityScenarioRule<A>, A>.captureMultiDevice(
+    name: String,
+    darkMode: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    ScreenshotDevice.entries.forEach { device ->
+        RuntimeEnvironment.setQualifiers(device.qualifiers)
+        activity.setContent {
+            // LocalInspectionMode = true makes AsyncImage and similar render placeholders, as in previews.
+            CompositionLocalProvider(LocalInspectionMode provides true) {
+                DeviceConfigurationOverride(DeviceConfigurationOverride.DarkMode(darkMode)) { content() }
+            }
+        }
+        val suffix = if (darkMode) "_dark" else ""
+        onRoot().captureRoboImage("src/test/screenshots/${name}_${device.label}$suffix.png", roborazziOptions = options)
+    }
+}
+```
+
+The test:
+
+```kotlin
+package com.example.app.feature.notes.impl
+
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import com.example.app.core.designsystem.theme.AppTheme
+import com.example.app.core.screenshottesting.captureMultiDevice
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+import org.robolectric.annotation.LooperMode
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)    // real Skia rendering; without it the PNG is blank
+@LooperMode(LooperMode.Mode.PAUSED)
+@Config(sdk = [35])
+class NotesScreenScreenshotTest {
+    @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
+
+    private val notes = NotesPreviewParameterProvider().values.first()
+
+    @Test
+    fun populated() = composeRule.captureMultiDevice("NotesScreen_populated") {
+        AppTheme(dynamicColor = false) { NotesScreen(state = NotesUiState.Success(notes), onOpen = {}, onArchive = {}) }
+    }
+
+    @Test
+    fun populatedDark() = composeRule.captureMultiDevice("NotesScreen_populated", darkMode = true) {
+        AppTheme(dynamicColor = false) { NotesScreen(state = NotesUiState.Success(notes), onOpen = {}, onArchive = {}) }
+    }
+
+    @Test
+    fun empty() = composeRule.captureMultiDevice("NotesScreen_empty") {
+        AppTheme(dynamicColor = false) { NotesScreen(state = NotesUiState.Empty, onOpen = {}, onArchive = {}) }
+    }
+}
+```
+
+Deterministic inputs are the whole game: `TimeZone.setDefault(TimeZone.getTimeZone("UTC"))` in a `@Before` when dates render, preview parameter providers instead of random data, `dynamicColor = false`, and `@Config(sdk = [...])` pinned, because fonts differ between Robolectric SDK levels.
+
+Accessibility checks on the same render: `roborazzi-accessibility-check` adds `onRoot().checkRoboAccessibility(...)` backed by the Accessibility Test Framework (text contrast, touch target size, missing labels). Run it before `captureRoboImage` so a failing check still records the image for the report; suppress known false positives per check with a Hamcrest matcher rather than disabling the whole category.
+
+Commands:
+
+```sh
+./gradlew :feature:notes:impl:recordRoborazziDebug      # write/overwrite src/test/screenshots/*.png
+./gradlew :feature:notes:impl:verifyRoborazziDebug      # fail on diff; build/outputs/roborazzi/*_compare.png shows the delta
+./gradlew :feature:notes:impl:testDebugUnitTest         # same as verify when roborazzi.test.verify=true
+```
+
+In CI, run verify; on a pull request from the same repository a failed verify can trigger `recordRoborazziDebug` and a commit of the new PNGs for review (Now in Android does this with a bot commit). Never auto-record on `main`, and reject PRs from forks that change screenshots without a human look. The reference PNGs live in the repository; at `resizeScale = 0.5` a screen is 50 to 150 KB, so keep the device list to what the product supports.
+
 ## What not to unit test
 
 - Composables (use [compose-ui-testing.md](compose-ui-testing.md) or [screenshot-testing.md](screenshot-testing.md)).
@@ -267,3 +552,6 @@ A test suite that takes longer than a minute for a few hundred tests usually has
 - https://developer.android.com/training/testing/local-tests/robolectric
 - https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-test/
 - https://github.com/cashapp/turbine
+- https://developer.android.com/training/dependency-injection/hilt-testing
+- https://robolectric.org/
+- https://github.com/takahirom/roborazzi

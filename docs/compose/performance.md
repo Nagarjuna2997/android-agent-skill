@@ -79,6 +79,77 @@ kotlinx.datetime.LocalDate
 com.example.domain.*
 ```
 
+## Stability configuration and compiler reports in a multi-module project
+
+Now in Android (see [../../references/nowinandroid.md](../../references/nowinandroid.md)) keeps one stability file at the repository root, named `compose_compiler_config.conf`, and wires it plus the report tasks from the Compose convention plugin so every Compose module gets the same configuration without touching its build file.
+
+### The configuration file
+
+```
+// compose_compiler_config.conf (repository root)
+// Classes the Compose compiler treats as stable even though it cannot see their source.
+// https://developer.android.com/develop/ui/compose/performance/stability/fix#configuration-file
+
+// The model module is a JVM library without the Compose plugin; every class in it is an immutable
+// data class, so declare the whole package stable instead of annotating each type or applying the plugin there.
+com.example.app.core.model.*
+
+// JDK types used in UiState that the compiler would otherwise call unstable.
+java.time.Instant
+java.time.ZoneId
+java.time.ZoneOffset
+java.time.LocalDate
+```
+
+Wildcards cover a package, not subpackages; list each package. Listing a class here is a promise identical to `@Immutable`: if a listed class gains a `var`, composables taking it will skip when they should not and the bug will look like "the UI did not update". Keep the file to types that are actually immutable and review it in the same pull request as the model change.
+
+### Wiring it once in build logic
+
+```kotlin
+// build-logic/convention/src/main/kotlin/com/example/app/buildlogic/AndroidCompose.kt (excerpt)
+import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginExtension
+
+extensions.configure<ComposeCompilerGradlePluginExtension> {
+    // Same file for every module; relative to the root project, works with isolated projects.
+    stabilityConfigurationFiles.add(isolated.rootProject.projectDirectory.file("compose_compiler_config.conf"))
+
+    // Reports and metrics only on demand: they slow compilation and churn build/ output.
+    val enabled = providers.gradleProperty("enableComposeCompilerReports").map(String::toBoolean).orElse(false)
+    val outDir = isolated.rootProject.projectDirectory.dir("build/compose-reports").dir(path.replace(':', '_'))
+    if (enabled.get()) {
+        reportsDestination.set(outDir)
+        metricsDestination.set(outDir)
+    }
+}
+```
+
+The full convention plugin is in [../../patterns/clean-architecture.md](../../patterns/clean-architecture.md). In a single-module app the same two settings go in `app/build.gradle.kts` under `composeCompiler { }`, as shown in the "Measure first" section above.
+
+### Strong skipping is the default; what the file still buys you
+
+With Kotlin 2.0+ strong skipping is on, so a composable with an unstable `List<Note>` parameter still skips when the same instance is passed again. The configuration file matters for the cases strong skipping does not cover:
+
+- Parameters compared by `equals` rather than identity. A `UiState` rebuilt by `copy()` with equal contents is a new instance; if its type is unstable, instance comparison says "changed" and the screen recomposes. Listing the model package makes the comparison structural.
+- `remember(key)` and `derivedStateOf` keys of unstable types compare by reference.
+- Lambdas capturing unstable values are memoized under strong skipping, but their equality is still reference-based, so a lambda rebuilt around a new-but-equal unstable object invalidates its consumer.
+
+Opting out of strong skipping (`featureFlags.add(ComposeFeatureFlag.StrongSkipping.disabled())`) is only for diagnosing a suspected skipping bug; do not ship with it off.
+
+### Running the report task
+
+```sh
+./gradlew :app:assembleRelease -PenableComposeCompilerReports=true
+ls build/compose-reports/_app/
+#   app_release-classes.txt       stable / unstable verdict per class with the reason
+#   app_release-composables.txt   restartable / skippable / readonly per composable, with parameter stability
+#   app_release-composables.csv   same, for spreadsheets
+#   app_release-module.json       counts: skippable, restartable, readonly, lambdas memoized
+```
+
+Read `classes.txt` for a class you expected to be stable; the line names the first unstable property. Read `composables.txt` for `restartable scheme(...)` entries without `skippable`; each lists the parameter whose type blocked skipping. Fix the type (immutable, listed in the configuration file, or `@Immutable`) and re-run; the report is the test. Run it per module (`:feature:orders:impl:assembleRelease -PenableComposeCompilerReports=true`) when the app module is large; the output directory is keyed by module path.
+
+Do not commit the reports; `build/` is already ignored. Do not leave the property set in `gradle.properties`; it slows every compile.
+
 ## Lazy layouts
 
 - Always pass `key`. Without it, inserting at the top re-binds every row and loses per-item state.
@@ -176,6 +247,9 @@ Then Layout Inspector recomposition counts on the screen you changed while perfo
 - https://developer.android.com/develop/ui/compose/performance/bestpractices
 - https://developer.android.com/develop/ui/compose/performance/stability
 - https://developer.android.com/develop/ui/compose/performance/stability/diagnose
+- https://developer.android.com/develop/ui/compose/performance/stability/fix
+- https://developer.android.com/develop/ui/compose/performance/stability/strongskipping
+- https://developer.android.com/develop/ui/compose/compiler
 - https://developer.android.com/develop/ui/compose/phases
 - https://developer.android.com/develop/ui/compose/lists
 - https://developer.android.com/topic/performance/baselineprofiles/overview

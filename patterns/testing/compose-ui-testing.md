@@ -226,6 +226,217 @@ class TodoFlowTest {
 
 Rule order matters: Hilt must inject before the Activity launches. These tests live in `androidTest` and run on a device or emulator; Hilt instrumentation under Robolectric works too but needs `@Config(application = HiltTestApplication::class)` and is slower to set up than plain `createComposeRule` tests.
 
+## Architecture Samples style: a fake repository shared with instrumented tests
+
+Google's Architecture Samples to-do app (see [../../references/architecture-samples.md](../../references/architecture-samples.md)) keeps one `shared-test` module whose `main` source set serves both JVM unit tests and instrumented tests: the fake repository, a `MainCoroutineRule`, `@TestInstallIn` modules and a custom runner. That is the single-module-app version of the `:core:testing` / `:core:data-test` split in [unit-testing.md](unit-testing.md). The pieces, re-implemented:
+
+```kotlin
+// app/build.gradle.kts
+dependencies {
+    testImplementation(project(":shared-test"))
+    androidTestImplementation(project(":shared-test"))
+}
+android {
+    defaultConfig.testInstrumentationRunner = "com.example.app.testing.AppTestRunner"   // installs HiltTestApplication
+}
+```
+
+The fake exposes its contents as a read-only `StateFlow` so tests assert on repository state without a second query, a `seed(vararg)` method, and one switch that makes every call fail:
+
+```kotlin
+// shared-test/src/main/kotlin/com/example/app/testing/FakeTodoRepository.kt
+package com.example.app.testing
+
+import com.example.app.todo.TodoItem
+import com.example.app.todo.TodoRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
+import java.io.IOException
+import java.time.Instant
+import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class FakeTodoRepository @Inject constructor() : TodoRepository {
+    private val _saved = MutableStateFlow<Map<String, TodoItem>>(linkedMapOf())
+    /** Read-only view for assertions: `repository.saved.value["1"]?.isCompleted`. */
+    val saved: StateFlow<Map<String, TodoItem>> = _saved.asStateFlow()
+
+    /** When true every suspend call throws; observeAll keeps emitting the last value. */
+    var shouldFail: Boolean = false
+
+    override fun observeAll(): Flow<List<TodoItem>> = saved.map { it.values.toList() }
+
+    override suspend fun add(title: String) {
+        failIfRequested()
+        val id = UUID.randomUUID().toString()
+        _saved.update { it + (id to TodoItem(id, title, false, Instant.EPOCH)) }
+    }
+
+    override suspend fun setCompleted(id: String, completed: Boolean) {
+        failIfRequested()
+        _saved.update { map -> map[id]?.let { map + (id to it.copy(isCompleted = completed)) } ?: map }
+    }
+
+    override suspend fun delete(id: String) {
+        failIfRequested()
+        _saved.update { it - id }
+    }
+
+    /** Test-only. */
+    fun seed(vararg items: TodoItem) = _saved.update { it + items.associateBy(TodoItem::id) }
+
+    private fun failIfRequested() { if (shouldFail) throw IOException("fake failure") }
+}
+```
+
+```kotlin
+// shared-test/src/main/kotlin/com/example/app/testing/di/TestRepositoryModule.kt
+package com.example.app.testing.di
+
+import com.example.app.di.RepositoryModule
+import com.example.app.testing.FakeTodoRepository
+import com.example.app.todo.TodoRepository
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.components.SingletonComponent
+import dagger.hilt.testing.TestInstallIn
+
+@Module
+@TestInstallIn(components = [SingletonComponent::class], replaces = [RepositoryModule::class])
+interface TestRepositoryModule {
+    @Binds fun bindTodoRepository(fake: FakeTodoRepository): TodoRepository
+}
+```
+
+```kotlin
+// shared-test/src/main/kotlin/com/example/app/testing/di/TestDatabaseModule.kt
+@Module
+@TestInstallIn(components = [SingletonComponent::class], replaces = [DatabaseModule::class])
+object TestDatabaseModule {
+    @Provides @Singleton
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
+        Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).allowMainThreadQueries().build()
+}
+```
+
+The in-memory database module is for tests that exercise the real repository through the UI; the fake-repository module is for tests of screens and navigation. A test class gets one or the other by which module is on its classpath, so keep them in separate Gradle modules (`:shared-test` and `:shared-test-db`) if both kinds of instrumented tests exist; two `@TestInstallIn` modules replacing different production modules can coexist in one test module, as above.
+
+The sample's `MainCoroutineRule` defaults to `UnconfinedTestDispatcher` and the one test that must observe an intermediate `isLoading = true` overrides it for that test:
+
+```kotlin
+@Test
+fun refresh_showsLoadingThenData() = runTest {
+    Dispatchers.setMain(StandardTestDispatcher())   // override the rule for this test only; the rule's finished() resets it
+    viewModel.refresh()
+    assertTrue(viewModel.uiState.first().isRefreshing)
+    advanceUntilIdle()
+    assertFalse(viewModel.uiState.first().isRefreshing)
+}
+```
+
+This repository's `MainDispatcherRule` (in [unit-testing.md](unit-testing.md)) defaults to `StandardTestDispatcher` for the reasons given there, so the override goes the other way: `Dispatchers.setMain(UnconfinedTestDispatcher())` in a test that wants eager execution. The technique is the same.
+
+### Navigation tests through the real graph
+
+The sample's `AppNavigationTest` does not inspect a `NavController`. It launches an empty Hilt-enabled Activity, sets the whole nav graph as content, seeds the injected fake repository, then clicks and asserts on visible text, including after `Espresso.pressBack()`. That tests what the user experiences, and survives a migration from Navigation Compose to Navigation 3 without changes.
+
+The debug-only Activity (in `app/src/debug/`, so it never ships):
+
+```kotlin
+// app/src/debug/kotlin/com/example/app/HiltTestActivity.kt
+package com.example.app
+
+import androidx.activity.ComponentActivity
+import dagger.hilt.android.AndroidEntryPoint
+
+@AndroidEntryPoint
+class HiltTestActivity : ComponentActivity()
+```
+
+Also register it in `app/src/debug/AndroidManifest.xml` with `android:exported="false"` and `android:theme="@style/Theme.App"`.
+
+```kotlin
+// app/src/androidTest/kotlin/com/example/app/AppNavigationTest.kt
+package com.example.app
+
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.test.espresso.Espresso.pressBack
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.app.testing.FakeTodoRepository
+import com.example.app.todo.TodoItem
+import com.example.app.ui.theme.AppTheme
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.time.Instant
+import javax.inject.Inject
+
+@RunWith(AndroidJUnit4::class)
+@HiltAndroidTest
+class AppNavigationTest {
+    @get:Rule(order = 0) val hiltRule = HiltAndroidRule(this)
+    @get:Rule(order = 1) val composeRule = createAndroidComposeRule<HiltTestActivity>()
+
+    @Inject lateinit var repository: FakeTodoRepository   // the @Singleton fake the ViewModels also get
+
+    private val activity get() = composeRule.activity
+
+    @Before
+    fun setUp() {
+        hiltRule.inject()
+        repository.seed(TodoItem("1", "Buy milk", false, Instant.EPOCH))
+        composeRule.setContent { AppTheme { AppNavHost() } }   // the real graph, default start destination
+    }
+
+    @Test
+    fun openDetail_thenBack_returnsToList() {
+        composeRule.onNodeWithText("Buy milk").performClick()
+        composeRule.onNodeWithText(activity.getString(R.string.detail_title)).assertIsDisplayed()
+
+        pressBack()
+
+        composeRule.onNodeWithText(activity.getString(R.string.list_title)).assertIsDisplayed()
+        composeRule.onNodeWithText("Buy milk").assertIsDisplayed()
+    }
+
+    @Test
+    fun detail_deleteNavigatesToListAndShowsMessage() {
+        composeRule.onNodeWithText("Buy milk").performClick()
+        composeRule.onNodeWithContentDescription(activity.getString(R.string.action_delete)).performClick()
+
+        composeRule.onNodeWithText(activity.getString(R.string.list_title)).assertIsDisplayed()
+        composeRule.onNodeWithText(activity.getString(R.string.todo_deleted)).assertIsDisplayed()   // snackbar
+    }
+
+    @Test
+    fun backOnStartDestination_finishesActivity() {
+        pressBack()
+        composeRule.waitUntil { activity.isFinishing }
+    }
+}
+```
+
+Rules of this style:
+
+- Strings come from `activity.getString(R.string.x)`, never literals, so the test passes under any locale and fails when a label is removed.
+- `pressBack()` from Espresso exercises the real `OnBackPressedDispatcher`, including predictive back handling; `navController.popBackStack()` would not.
+- Seed through the injected fake before `setContent`, because the start destination's ViewModel subscribes as soon as it composes.
+- Assert visible content, not destinations. Use `TestNavHostController` (the earlier "Navigation tests" section) only when two screens look identical or when testing a graph builder in isolation.
+- These tests need a device or emulator because of Hilt plus the real Activity; keep them to the handful of flows that matter and put everything else in the Robolectric screen tests above.
+
 ## What belongs here vs elsewhere
 
 - State rendering (loading, empty, error, lists): UI test on the stateless screen under Robolectric. Fast, in the unit test task.
@@ -271,3 +482,5 @@ Gradle-managed devices (`testOptions.managedDevices`) give CI a reproducible emu
 - https://developer.android.com/training/dependency-injection/hilt-testing
 - https://developer.android.com/studio/test/gradle-managed-devices
 - https://robolectric.org/
+- https://developer.android.com/training/testing/espresso/basics
+- [../../references/architecture-samples.md](../../references/architecture-samples.md) for the sample the shared-test and navigation-test style was studied from

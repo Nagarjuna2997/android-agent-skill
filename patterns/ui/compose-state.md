@@ -268,6 +268,187 @@ Box(Modifier.offset { IntOffset(0, scrollOffset.roundToInt()) })
 Box(Modifier.drawBehind { drawRect(animatedColor) })
 ```
 
+## Patterns from the Compose samples
+
+Four state techniques from JetNews, Jetchat and Jetsnack in `android/compose-samples` ([../../references/compose-samples.md](../../references/compose-samples.md)), re-implemented here.
+
+### rememberSaveable with a custom Saver, and rememberSerializable
+
+A tab or section selection is pure UI state that must survive rotation and process death. Enums and primitives need no `Saver`; a small value class or a data class does. Two options: a `Saver` for `rememberSaveable`, or `rememberSerializable` (`androidx.compose.runtime.saveable`, Compose 1.12) with a kotlinx.serialization serializer, which is what JetNews uses for its Navigation 3 keys.
+
+```kotlin
+package com.example.app.ui.interests
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSerializable
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.savedstate.compose.serialization.serializers.MutableStateSerializer
+import kotlinx.serialization.Serializable
+
+enum class Section { Topics, People, Publications }
+
+// Option A: enum is Serializable, so rememberSaveable handles it directly.
+@Composable
+fun InterestsRoute(viewModel: InterestsViewModel) {
+    var section by rememberSaveable { mutableStateOf(Section.Topics) }
+    InterestsScreen(section = section, onSectionChange = { section = it }, uiState = viewModel.uiState.collectAsStateWithLifecycle().value)
+}
+
+// Option B: a richer selection needs a Saver. Save only what is needed to rebuild it.
+data class FilterSelection(val section: Section, val query: String, val onlyFollowed: Boolean)
+
+val FilterSelectionSaver = Saver<FilterSelection, List<Any>>(
+    save = { listOf(it.section.name, it.query, it.onlyFollowed) },
+    restore = { FilterSelection(Section.valueOf(it[0] as String), it[1] as String, it[2] as Boolean) },
+)
+
+@Composable
+fun rememberFilterSelection(initial: FilterSelection) =
+    rememberSaveable(stateSaver = FilterSelectionSaver) { mutableStateOf(initial) }
+
+// Option C: rememberSerializable with kotlinx.serialization; no hand-written Saver.
+@Serializable
+data class DraftReply(val toUserId: String, val text: String)
+
+@Composable
+fun rememberDraft(toUserId: String) =
+    rememberSerializable(toUserId, serializer = MutableStateSerializer(DraftReply.serializer())) {
+        mutableStateOf(DraftReply(toUserId, ""))
+    }
+```
+
+`rememberSerializable` needs `org.jetbrains.kotlin.plugin.serialization` and `androidx.savedstate:savedstate-compose` (version from the `lifecycle`/`savedstate` release pages; `<version>`). Whichever option, keep saved state small: ids and scalars, never a list of domain objects (the Bundle limit is about 500 KB and `TransactionTooLargeException` is a crash).
+
+### State holders: `rememberXState` plain classes
+
+When a screen has several related pieces of UI state and a few operations on them (a drawer plus a snackbar host plus the current tab; a rich text field with styles), put them in one plain class created by a `rememberXState()` function, as Jetsnack does for its scaffold and Jetchat for rich text input. The class is not a ViewModel: it holds no business data, is recreated with the composition, and is testable without Robolectric.
+
+```kotlin
+package com.example.app.ui.home
+
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+
+@Stable   // internals are MutableState, so changes are observable; see "Stability and skipping"
+class HomeScreenState(
+    val listState: LazyListState,
+    val snackbarHostState: SnackbarHostState,
+    private val scope: CoroutineScope,
+    initialTab: HomeTab,
+) {
+    var tab by mutableStateOf(initialTab)
+        private set
+
+    // Derived once; readers recompose only when the Boolean flips.
+    val isScrolled: Boolean by derivedStateOf {
+        listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
+    }
+
+    fun selectTab(newTab: HomeTab) {
+        if (newTab == tab) return
+        tab = newTab
+        scope.launch { listState.scrollToItem(0) }
+    }
+
+    fun showMessage(text: String) {
+        scope.launch { snackbarHostState.showSnackbar(text) }
+    }
+}
+
+@Composable
+fun rememberHomeScreenState(
+    listState: LazyListState = rememberLazyListState(),
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+    scope: CoroutineScope = rememberCoroutineScope(),
+    initialTab: HomeTab = HomeTab.ForYou,
+): HomeScreenState {
+    // The tab is the only part worth saving; list state saves itself.
+    var savedTab by rememberSaveable { mutableStateOf(initialTab) }
+    val state = remember(listState, snackbarHostState, scope) {
+        HomeScreenState(listState, snackbarHostState, scope, savedTab)
+    }
+    SideEffect { savedTab = state.tab }
+    return state
+}
+```
+
+Callers write `val state = rememberHomeScreenState()` and pass `state` down or pass individual properties. Keys on `remember` are the constructor inputs, so a new `scope` after a parent leaves and re-enters composition produces a new holder. A holder that needs a `Saver` for everything can implement one with `listSaver` and be created through `rememberSaveable(saver = ...)` instead of the `SideEffect` mirror above.
+
+### derivedStateOf in scroll-based UI
+
+Anything that flips a Boolean or picks a bucket from a continuously changing `LazyListState` is a `derivedStateOf` candidate: app bar elevation once the list is scrolled, a "jump to bottom" button past a threshold, a collapsed header. The rule is that the derived value must change far less often than the inputs.
+
+```kotlin
+val listState = rememberLazyListState()
+val thresholdPx = with(LocalDensity.current) { 56.dp.toPx() }
+
+// remember has no key because listState is stable for the composable's lifetime and
+// thresholdPx only changes with density (a configuration change recreates everything).
+val showJumpToBottom by remember(listState) {
+    derivedStateOf { listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset > thresholdPx }
+}
+val appBarElevated by remember(listState) { derivedStateOf { listState.canScrollBackward } }
+
+// Anti-pattern (seen in a sample): an extension property that creates derivedStateOf on every read.
+val LazyListState.isScrolled: Boolean get() = derivedStateOf { firstVisibleItemIndex > 0 }.value
+```
+
+For values that are not Booleans but still bucketed (a header collapse fraction read in a `graphicsLayer` lambda), skip `derivedStateOf` and read the state in the lambda instead; the draw or layout phase handles per-pixel changes without recomposition (see "Reading state at the right level").
+
+### LazyListState driven effects
+
+Two effects commonly hang off a list state. Persisting the scroll position into the ViewModel so it can be restored after process death or when the item reappears in a different pane (JetNews does this for the article detail):
+
+```kotlin
+// imports: androidx.compose.runtime.snapshotFlow, kotlinx.coroutines.FlowPreview,
+// kotlinx.coroutines.flow.debounce, kotlinx.coroutines.flow.collectLatest
+@OptIn(FlowPreview::class)
+@Composable
+fun ArticleBody(uiState: ArticleUiState, onScrollPositionChanged: (index: Int, offset: Int) -> Unit) {
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = uiState.restoredIndex,
+        initialFirstVisibleItemScrollOffset = uiState.restoredOffset,
+    )
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+            .debounce(50)                      // not every pixel; the last position wins
+            .collectLatest { (index, offset) -> onScrollPositionChanged(index, offset) }
+    }
+    LazyColumn(state = listState) { /* ... */ }
+}
+```
+
+The ViewModel stores the pair in `SavedStateHandle` and exposes it in `UiState`. `rememberLazyListState` already saves its own position across rotation; the ViewModel copy is for process death with a navigation stack that does not restore the composable, and for sharing the position between a phone-sized detail screen and a tablet detail pane.
+
+Keeping the newest item visible in a reversed chat list only when the user is already at the bottom:
+
+```kotlin
+LaunchedEffect(listState, messages.firstOrNull()?.id) {
+    val atBottom = listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
+    if (atBottom) listState.animateScrollToItem(0)
+}
+```
+
+Keyed on the newest id, the effect runs once per new message and never fights the user's scroll.
+
 ## Avoid
 
 ```kotlin
@@ -309,3 +490,4 @@ In Android Studio, enable Layout Inspector's recomposition counts and scroll the
 - https://developer.android.com/develop/ui/compose/performance/stability/diagnose
 - https://developer.android.com/develop/ui/compose/lists
 - https://developer.android.com/develop/ui/compose/phases
+- https://github.com/android/compose-samples (JetNews, Jetchat, Jetsnack; see [../../references/compose-samples.md](../../references/compose-samples.md))

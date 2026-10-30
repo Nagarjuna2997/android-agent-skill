@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 — 2026-10-30
+
+Distilled six official Google Android samples (Now in Android, architecture-samples, compose-samples, Sunflower, ndk-samples, UAMP; all Apache-2.0) into the skill as original re-implementations, with a reference study per sample in `references/` recording what was adopted, what was deliberately not copied, and how far each sample's toolchain sits from `data/versions.json`.
+
+- Ten new capabilities (47 total): `datastore-proto`, `offline-first-sync`, `design-system-module`, `rich-text-and-markdown`, `compose-drawing-and-graphics`, `tv-and-large-screen-app`, `ndk-native-code`, `oboe-low-latency-audio`, `vulkan-and-gles-rendering`, `media-session-service`. Native, Oboe, Vulkan/GLES and TV recipes are marked runtime-unverified.
+- New `checklists/code-quality.md` (Spotless, ktlint, detekt, custom lint module, Dependency Guard, API surface checks) and `docs/android/native-code.md`.
+- New `templates/native-module/` (CMake, JNI bridge, 16 KB page alignment, instrumented test) and a CI workflow with configuration cache, Spotless and Dependency Guard steps, lint SARIF upload and a manual baseline-profile job.
+- Extended patterns: Clean Architecture gains the feature api/impl split, a `:core:*` module taxonomy and a complete `build-logic` convention-plugin example; MVVM gains a comparison with architecture-samples; adaptive layouts, animation, theming, Compose state and accessibility gain sections drawn from Reply, JetNews, Jetsnack, Jetchat and JetLagged; repository and Room gain asset seeding and relations; testing gains test-double modules, Roborazzi screenshots, shared fakes and navigation tests through the real graph.
+- `scripts/check-links.mjs` now walks `references/`.
+
 ## 0.2.0 — 2026-10-28
 
 Added the engineering skill half of the project alongside the existing tooling:

@@ -158,6 +158,35 @@ fun ArticleHero(url: String, modifier: Modifier = Modifier) {
 
 In a `LazyColumn`, `AsyncImage` with a fixed size modifier (`Modifier.size(...)` or `aspectRatio`) lets Coil request a downsampled bitmap; an unconstrained image decodes at full resolution.
 
+### Lists: fixed size and a visible placeholder
+
+A card list that loads one image per row must not change height when bitmaps arrive, and must show something while they load, or the list jumps and scroll position drifts. Google's Sunflower sample does this with a fixed image height from a dimension resource, `ContentScale.Crop`, and a tinted box under the image until the request settles; with Coil 3 the placeholder is a parameter and the fixed size does the rest.
+
+```kotlin
+@Composable
+fun PlantCard(name: String, imageUrl: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Card(onClick = onClick, modifier = modifier) {
+        Column(Modifier.fillMaxWidth()) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = null,                          // the name below carries the meaning
+                placeholder = ColorPainter(MaterialTheme.colorScheme.surfaceContainerHighest),
+                error = ColorPainter(MaterialTheme.colorScheme.surfaceContainerHighest),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxWidth().height(96.dp),    // fixed height: no layout jump, downsampled decode
+            )
+            Text(name, Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+```
+
+`ColorPainter` (`androidx.compose.ui.graphics.painter.ColorPainter`) avoids a drawable resource for a flat placeholder. Keep `crossfade` on the loader so the swap from placeholder to bitmap is not a pop; set `contentType` on the `LazyColumn` items so the card compositions are reused while scrolling.
+
+### When the project already uses Glide
+
+Glide has a Compose integration (`com.github.bumptech.glide:compose`, `<version>` from its release page; still marked `@ExperimentalGlideComposeApi`) with a `GlideImage(model, contentDescription, loading = placeholder(...), failure = placeholder(...))` composable. Do not add it to a new project; use Coil 3. In an existing Glide app, keep `GlideImage` for consistency with the Views code and apply the same rules as above: fixed size in lists, a `loading` placeholder, `contentDescription = null` only for decoration. Mixing Coil and Glide doubles the disk cache and the OkHttp clients.
+
 ### Preloading and cache control
 
 ```kotlin
@@ -241,3 +270,5 @@ Compose test with a fake engine:
 - https://coil-kt.github.io/coil/image_loaders/
 - https://coil-kt.github.io/coil/testing/
 - https://developer.android.com/develop/ui/compose/graphics/images/loading
+- https://bumptech.github.io/glide/int/compose.html
+- https://github.com/android/sunflower (see [../../references/sunflower.md](../../references/sunflower.md))

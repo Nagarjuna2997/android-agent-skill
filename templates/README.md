@@ -5,6 +5,7 @@ Ready-to-copy starting points for an Android project, a CI pipeline, MCP client 
 | Template | What it is | Apply when |
 |---|---|---|
 | `compose-app/` | Complete single-module Compose app: Hilt, type-safe Navigation Compose, one screen with all four states, unit and UI tests | Starting a new app from nothing |
+| `native-module/` | `:nativelib` library module: CMake build, JNI bridge registered in `JNI_OnLoad`, `@JvmStatic external fun` facade, version script, 16 KB alignment, Prefab headers, instrumented test | Adding C++ to an existing app; pair with `capabilities/ndk-native-code/README.md` |
 | `ci-cd/github-actions-android.yml` | GitHub Actions workflow: lint, unit tests, debug build, report upload, optional emulator job | Adding CI to any Gradle Android project |
 | `clients/` | MCP configuration snippets for Claude Code, Codex, Gemini CLI, Cursor and VS Code pointing at `android-agent mcp` | Wiring this repository's MCP server into a coding agent |
 | `hooks/check-android-style.sh` | Bash check that fails on `GlobalScope`, `LiveData`, `EncryptedSharedPreferences`, `Thread.sleep` and missing `android:exported` | Pre-commit, CI, or an agent's post-edit hook |

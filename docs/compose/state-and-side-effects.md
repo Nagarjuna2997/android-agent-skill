@@ -222,6 +222,74 @@ for (note in notes) {
 
 Without keys, Compose matches by position: deleting the first item hands every card the next item's state.
 
+## Sample-derived examples
+
+Three cases from JetNews and Jetchat in `android/compose-samples` ([../../references/compose-samples.md](../../references/compose-samples.md)) that extend the sections above.
+
+### A queue of messages, one snackbar at a time, with a retry action
+
+The snackbar example earlier handles one transient error. When the ViewModel can accumulate several (a refresh failed and a toggle failed), keep a `List<UiMessage>` in `UiState`, show only the head, and acknowledge it by id. Both lambdas go through `rememberUpdatedState` so a recomposition of the caller does not restart the running effect, and the effect is keyed on the resolved text so a new message with the same id but different text still shows.
+
+```kotlin
+data class UiMessage(val id: Long, @StringRes val textRes: Int, val retryable: Boolean)
+
+@Composable
+fun MessageHost(messages: List<UiMessage>, onRetry: () -> Unit, onShown: (Long) -> Unit, hostState: SnackbarHostState) {
+    val message = messages.firstOrNull() ?: return
+    val text = stringResource(message.textRes)
+    val retryLabel = stringResource(R.string.retry)
+    val currentOnRetry by rememberUpdatedState(onRetry)
+    val currentOnShown by rememberUpdatedState(onShown)
+
+    // Technique from android/compose-samples JetNews (Apache-2.0): one effect per message text;
+    // the next message starts a new effect only after the ViewModel removes this one.
+    LaunchedEffect(text, hostState) {
+        val result = hostState.showSnackbar(
+            message = text,
+            actionLabel = if (message.retryable) retryLabel else null,
+        )
+        if (result == SnackbarResult.ActionPerformed) currentOnRetry()
+        currentOnShown(message.id)
+    }
+}
+```
+
+In the ViewModel, `onShown(id)` removes the message from the list and `nextMessageId` is a counter, so two identical errors in a row are two entries and both get shown.
+
+### Persisting scroll position through snapshotFlow with debounce
+
+The earlier `snapshotFlow` examples derive a Boolean. To store the position itself (so the ViewModel can restore it after process death, or hand it to a second pane), emit the pair, debounce so the ViewModel is not written on every pixel, and use `collectLatest`:
+
+```kotlin
+@OptIn(FlowPreview::class)
+LaunchedEffect(listState) {
+    snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+        .debounce(50)
+        .collectLatest { (index, offset) -> viewModel.onScrolled(index, offset) }
+}
+```
+
+Restore with `rememberLazyListState(initialFirstVisibleItemIndex = uiState.index, initialFirstVisibleItemScrollOffset = uiState.offset)`; the initial values are only read when the state object is created, which is exactly once per composition entry.
+
+### rememberUpdatedState inside a remember block
+
+`remember(keys) { }` caches an object that may capture a lambda. If the lambda is not a key, the cached object calls a stale lambda; if it is a key, the cache is useless because lambdas are new on every recomposition. Jetchat's message formatter resolves this by reading a `rememberUpdatedState` holder inside the cached object:
+
+```kotlin
+@Composable
+fun rememberFormattedMessage(text: String, onMentionClick: (String) -> Unit): AnnotatedString {
+    val currentOnMentionClick by rememberUpdatedState(onMentionClick)
+    return remember(text) {
+        buildAnnotatedString {
+            // ... for each @mention:
+            withLink(LinkAnnotation.Clickable("mention") { currentOnMentionClick(name) }) { append(name) }
+        }
+    }
+}
+```
+
+The same shape applies to any cached listener: a `remember`ed `WebViewClient`, a `DisposableEffect`-registered callback, a `NestedScrollConnection` that reports to the ViewModel.
+
 ## Effect pitfalls
 
 - Reading state in the effect body but not listing it as a key. The effect runs with the first value forever. Either add the key or use `rememberUpdatedState`.
@@ -259,3 +327,5 @@ Then a Compose UI test for any effect-driven behavior, for example that a snackb
 - https://developer.android.com/develop/ui/compose/lifecycle
 - https://developer.android.com/develop/ui/compose/lists
 - https://developer.android.com/topic/libraries/architecture/coroutines
+- https://developer.android.com/develop/ui/compose/text/user-interactions
+- https://github.com/android/compose-samples (JetNews, Jetchat; see [../../references/compose-samples.md](../../references/compose-samples.md))

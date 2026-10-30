@@ -35,8 +35,8 @@ For each failed step, tell the developer what you attempted, the relevant diagno
 | Work through a feature end to end (inspect, implement, build, verify) | `docs/agent-engineering-guide.md` |
 | Choose or apply an architecture | `patterns/README.md`, `docs/android/app-architecture.md` |
 | ViewModel, state and events | `patterns/mvvm.md`, `patterns/unidirectional-data-flow.md` |
-| Multi-module layout and use cases | `patterns/clean-architecture.md` |
-| Data layer, caching, offline-first | `patterns/repository.md`, `capabilities/room-database/README.md` |
+| Multi-module layout, build logic and use cases | `patterns/clean-architecture.md`, `capabilities/design-system-module/README.md` |
+| Data layer, caching, offline-first | `patterns/repository.md`, `capabilities/room-database/README.md`, `capabilities/offline-first-sync/README.md`, `capabilities/datastore-proto/README.md` |
 | Dependency injection | `patterns/dependency-injection.md`, `capabilities/hilt-di/README.md`, `capabilities/koin-di/README.md` |
 | Screens, routes, deep links | `patterns/navigation.md`, `capabilities/deep-links/README.md` |
 | Coroutines, Flow, lifecycle collection | `docs/kotlin/coroutines-and-flow.md` |
@@ -48,7 +48,11 @@ For each failed step, tell the developer what you attempted, the relevant diagno
 | Tests | `patterns/testing/unit-testing.md`, `patterns/testing/compose-ui-testing.md`, `patterns/testing/screenshot-testing.md`, `checklists/testing.md` |
 | New project scaffold or CI | `templates/compose-app/`, `templates/ci-cd/` |
 | Release and Play submission | `checklists/release.md`, `checklists/play-store-submission.md`, `checklists/performance.md` |
+| Formatting, custom lint, dependency and API checks | `checklists/code-quality.md` |
 | Drive builds, devices, emulators, screenshots through tooling | `docs/COMMANDS.md`, `docs/INTEGRATIONS.md` |
+| Native code, audio, graphics (NDK, CMake, JNI, Oboe, Vulkan) | `docs/android/native-code.md`, `capabilities/ndk-native-code/README.md`, `templates/native-module/` |
+| Media playback service, Android Auto, Cast | `capabilities/media-playback/README.md`, `capabilities/media-session-service/README.md` |
+| How Google's official samples do it, and what not to copy from them | `references/README.md`, then one `references/<sample>.md` |
 | Toolchain versions and sources | `data/versions.json`, `docs/RESEARCH.md` |
 
 ## Tooling boundaries

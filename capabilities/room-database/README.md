@@ -246,6 +246,92 @@ class NotesViewModel @Inject constructor(private val repository: NoteRepository)
 
 Collect in Compose with `viewModel.uiState.collectAsStateWithLifecycle()` from `androidx.lifecycle.compose`.
 
+### Relations, joins and prepopulated data
+
+Three techniques from Google's Sunflower sample (a plant catalog plus a "my garden" table) that most apps with more than one table need.
+
+One-to-many with `@Relation`, read in one transaction. A result class embeds the parent and declares the children; Room runs the parent query, then one query per parent for the children. `@Transaction` makes the two consistent, and the `Flow` re-emits when either table changes.
+
+```kotlin
+package com.example.app.data.local
+
+import androidx.room.ColumnInfo
+import androidx.room.Dao
+import androidx.room.Embedded
+import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
+import androidx.room.PrimaryKey
+import androidx.room.Query
+import androidx.room.Relation
+import androidx.room.Transaction
+import kotlinx.coroutines.flow.Flow
+
+@Entity(tableName = "plants")
+data class PlantEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    @ColumnInfo(name = "grow_zone") val growZone: Int,
+    @ColumnInfo(name = "watering_interval_days") val wateringIntervalDays: Int,
+)
+
+@Entity(
+    tableName = "plantings",
+    foreignKeys = [ForeignKey(entity = PlantEntity::class, parentColumns = ["id"], childColumns = ["plant_id"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("plant_id")],          // every foreign key column needs an index or lint warns and joins are slow
+)
+data class PlantingEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(name = "plant_id") val plantId: String,
+    @ColumnInfo(name = "planted_at") val plantedAt: Long,
+    @ColumnInfo(name = "last_watered_at") val lastWateredAt: Long,
+)
+
+// Technique from android/sunflower (Apache-2.0): parent + @Relation children as one result row.
+data class PlantWithPlantings(
+    @Embedded val plant: PlantEntity,
+    @Relation(parentColumn = "id", entityColumn = "plant_id") val plantings: List<PlantingEntity>,
+)
+
+@Dao
+interface GardenDao {
+    @Transaction
+    @Query("SELECT * FROM plants WHERE id IN (SELECT DISTINCT plant_id FROM plantings) ORDER BY name")
+    fun observeGarden(): Flow<List<PlantWithPlantings>>
+
+    // Cheap Boolean flag for a toggle button; emits on any change to the plantings table.
+    @Query("SELECT EXISTS(SELECT 1 FROM plantings WHERE plant_id = :plantId LIMIT 1)")
+    fun observeIsPlanted(plantId: String): Flow<Boolean>
+
+    @Query("SELECT * FROM plants WHERE grow_zone = :zone ORDER BY name")
+    fun observePlantsInZone(zone: Int): Flow<List<PlantEntity>>
+}
+```
+
+Joins without a relation class: when the UI needs a flat row (plant name plus its latest watering date), write the SQL and map into a plain data class whose property names match the selected column names or aliases. No `@Transaction` is needed for a single `SELECT`.
+
+```kotlin
+data class PlantWateringRow(val id: String, val name: String, @ColumnInfo(name = "last_watered_at") val lastWateredAt: Long?)
+
+@Query(
+    """
+    SELECT p.id, p.name, MAX(g.last_watered_at) AS last_watered_at
+    FROM plants p LEFT JOIN plantings g ON g.plant_id = p.id
+    GROUP BY p.id ORDER BY p.name
+    """,
+)
+fun observeWateringSummary(): Flow<List<PlantWateringRow>>
+```
+
+Room checks the SQL against the schema at compile time, so a typo in a column name fails the build rather than the first query. Prefer a `@Relation` when the UI shows the children as a nested list, and a join when it shows one aggregated value per parent.
+
+Prepopulating the database. Two supported ways:
+
+- `Room.databaseBuilder(...).createFromAsset("database/seed.db")` copies a prebuilt SQLite file at creation. Build the file with the same entities (a debug build plus `adb pull`, or the SQLite CLI), keep it under `src/main/assets/database/`, and remember that `exportSchema` must match it; on a version bump either ship a new file for fresh installs plus a migration for existing ones, or drop `createFromAsset` once the data is remote.
+- A `RoomDatabase.Callback` whose `onCreate` enqueues a WorkManager job that parses a bundled JSON file and calls `upsertAll`. Better when the seed is small, human-editable or shared with the server format. The complete worker, the Hilt wiring and the test are in [../../patterns/repository.md](../../patterns/repository.md) ("Seeding the database from bundled assets").
+
+In both cases the first `Flow` emission can be an empty list; the UI must model that as `Loading` or `Empty` rather than treating it as "the user has no data".
+
 ## Verify
 
 ```sh
@@ -283,6 +369,8 @@ class NoteDaoTest {
 }
 ```
 
+Relation test, in the same class: insert two plants and one planting, then `observeGarden().test { assertEquals(1, awaitItem().size) }`, and `observeIsPlanted("a")` must flip to `true` after the insert and back to `false` after the delete; this proves the `@Transaction` query re-emits on child-table writes.
+
 Migration test with `MigrationTestHelper` from `room-testing` is required whenever `version` is bumped; it reads the JSON schemas, so keep `schemas/` committed. The same DAO test runs on the JVM with Robolectric if the project prefers that.
 
 ## Pitfalls
@@ -291,6 +379,8 @@ Migration test with `MigrationTestHelper` from `room-testing` is required whenev
 - A DAO `Flow` emits for any write to the table, including no-op writes. Use `distinctUntilChanged()` in the repository when the mapped result is what matters.
 - Returning entities straight to the UI couples screens to the schema. Map to domain models in the repository.
 - `@Insert(onConflict = REPLACE)` deletes and re-inserts the row, which fires foreign-key cascades. Prefer `@Upsert`.
+- A `@Relation` query without `@Transaction` can return parents from before a write and children from after it. Room lint flags this; keep the annotation.
+- A foreign key without an index on the child column makes every parent delete scan the child table.
 - Large `Flow<List<...>>` results re-serialize the entire list on every change. For long lists use [paging](../paging/README.md) with `PagingSource` from Room.
 - Do not hold a `Cursor` or run queries inside `withContext(Dispatchers.Main)`; Room's suspend DAOs already pick the right thread.
 - Room 2.8 defaults to the bundled SQLite driver only when `setDriver` is used; the default Android framework SQLite varies by OS version. If you rely on SQL features newer than the device's SQLite (for example `RETURNING`), add `androidx.sqlite:sqlite-bundled` and `setDriver(BundledSQLiteDriver())`.
@@ -300,5 +390,7 @@ Migration test with `MigrationTestHelper` from `room-testing` is required whenev
 - https://developer.android.com/training/data-storage/room
 - https://developer.android.com/training/data-storage/room/migrating-db-versions
 - https://developer.android.com/training/data-storage/room/testing-db
+- https://developer.android.com/training/data-storage/room/relationships
+- https://developer.android.com/training/data-storage/room/prepopulate
 - https://developer.android.com/jetpack/androidx/releases/room
 - https://github.com/google/ksp/releases

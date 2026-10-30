@@ -32,7 +32,7 @@ A catalog entry is a recipe, not proof of a working build in the user's project.
 
 - Each recipe was written against the official documentation listed in its `## Sources` and the versions in `data/versions.json`. The code is meant to compile in context, but it has not been built inside the user's project with the user's dependency graph, minSdk, flavors and existing code.
 - An agent that applies a recipe must compile (`./gradlew :app:assembleDebug`), run the tests in `## Verify`, and only then say the feature works. The report must distinguish: inspected source, built and unit-tested, built and tested on a device or emulator, and unverified on device.
-- Some capabilities cannot be verified on a standard emulator at all and say so in their text: on-device AI (`on-device-ai`), Play Billing purchase flows (`play-billing`), Credential Manager with passkeys, Wear OS pairing (`wear-os-companion`, which is marked runtime-unverified). Those must be reported as unverified until run on suitable hardware.
+- Some capabilities cannot be verified on a standard emulator at all and say so in their text: on-device AI (`on-device-ai`), Play Billing purchase flows (`play-billing`), Credential Manager with passkeys, Wear OS pairing (`wear-os-companion`, which is marked runtime-unverified), Android TV focus and D-pad behaviour (`tv-and-large-screen-app`, also runtime-unverified). Those must be reported as unverified until run on suitable hardware.
 - Preview or device-gated APIs are flagged in the recipe (Gemini Nano availability, `@ExperimentalPagingApi` on `RemoteMediator`, Media3 `@UnstableApi` surfaces, Material 3 Expressive). The agent must repeat that flag to the user, not silently opt in.
 
 ## Adding a capability

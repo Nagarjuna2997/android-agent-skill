@@ -1,6 +1,6 @@
 {
   "name": "android-agent-skill",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Android app engineering skill for Claude Code, Codex, Gemini CLI, Cursor and other coding agents: Kotlin and Jetpack Compose patterns, feature capability recipes, checklists, project templates, and a local-first CLI/MCP server for Gradle builds, devices, emulators and screenshots.",
   "author": "Nagarjuna Reddy",
   "homepage": "https://nagarjuna2997.github.io/android-agent-skill/",

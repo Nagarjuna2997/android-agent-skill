@@ -276,6 +276,10 @@ Instrumented test with a bundled asset (`src/androidTest/assets/tone.mp3`):
 - Position must be polled; there is no position callback. Keep the poll `WhileSubscribed` so it stops off-screen.
 - Media3 `ui-compose` APIs are newer than the `PlayerView` path and some are marked `@UnstableApi`; add `@OptIn(UnstableApi::class)` only on the composable that needs it and say so in the report.
 
+## Going further
+
+This recipe is the single-stream case. When the app has a catalog to browse, must appear in Android Auto or Android Automotive OS, needs playback resumption from the system media controls after process death, or supports Cast, move the service to `MediaLibraryService` and follow `capabilities/media-session-service/README.md`. It keeps the `ExoPlayer`, `MediaController` repository and Compose controls from here and adds the browse tree, caller allowlisting, `DefaultMediaNotificationProvider` and `media3-cast`. The architecture it teaches is the one from Google's UAMP sample, re-expressed on Media3 1.11.1 (`references/uamp.md`).
+
 ## Sources
 
 - https://developer.android.com/media/media3

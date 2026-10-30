@@ -370,6 +370,106 @@
       "dependencies": [],
       "minSdk": 24,
       "tags": ["backup", "restore", "device-transfer", "privacy"]
+    },
+    {
+      "id": "datastore-proto",
+      "name": "Proto DataStore",
+      "category": "persistence",
+      "summary": "Typed, schema-versioned preferences with Proto DataStore in a JVM proto module: protobuf plugin, Serializer, DataMigrations guarded by schema flags, Flow-backed repository, migration from Preferences DataStore and a JVM test.",
+      "path": "capabilities/datastore-proto/README.md",
+      "dependencies": ["androidx.datastore:datastore@datastore", "androidx.datastore:datastore-core@datastore", "com.google.protobuf:protobuf-kotlin-lite", "com.google.protobuf:protoc", "com.google.protobuf"],
+      "minSdk": 24,
+      "tags": ["settings", "protobuf", "typed", "migrations", "sync-versions"]
+    },
+    {
+      "id": "offline-first-sync",
+      "name": "Offline-first sync",
+      "category": "background",
+      "summary": "Change-list synchronization of Room tables: Synchronizer/Syncable contract, changeListSync helper with versions in Proto DataStore, a HiltWorker CoroutineWorker running repositories in parallel, SyncManager exposing isSyncing, conflict strategy and tests.",
+      "path": "capabilities/offline-first-sync/README.md",
+      "dependencies": ["androidx.work:work-runtime-ktx@workmanager", "androidx.work:work-testing@workmanager", "androidx.hilt:hilt-work@androidxHilt", "androidx.hilt:hilt-compiler@androidxHilt", "androidx.tracing:tracing-ktx"],
+      "minSdk": 24,
+      "tags": ["offline", "sync", "workmanager", "change-list", "room"]
+    },
+    {
+      "id": "design-system-module",
+      "name": "Design system module",
+      "category": "app-structure",
+      "summary": "A :core:designsystem module with AppTheme (light, dark, dynamic), typography, shapes, an AppIcons object, Material 3 component wrappers, ThemePreviews and DevicePreviews annotations, and an :app-catalog application for reviewing components.",
+      "path": "capabilities/design-system-module/README.md",
+      "dependencies": ["androidx.compose:compose-bom@composeBom", "androidx.compose.material3:material3@material3", "androidx.compose.ui:ui-tooling-preview"],
+      "minSdk": 24,
+      "tags": ["theme", "material3", "compose", "modularization", "previews", "catalog"]
+    },
+    {
+      "id": "ndk-native-code",
+      "name": "NDK native code",
+      "category": "native",
+      "summary": "C++ through CMake and JNI: externalNativeBuild, RegisterNatives in JNI_OnLoad, @JvmStatic external fun facade, version script, ABI filters, 16 KB page-size alignment, ndk-stack, Prefab, HWASan/UBSan build types and googletest on device.",
+      "path": "capabilities/ndk-native-code/README.md",
+      "dependencies": ["androidx.test.ext:junit-gtest", "com.android.ndk.thirdparty:googletest"],
+      "minSdk": 26,
+      "tags": ["ndk", "jni", "cmake", "c++", "prefab", "sanitizers", "16kb", "googletest"]
+    },
+    {
+      "id": "oboe-low-latency-audio",
+      "name": "Oboe low-latency audio",
+      "category": "native",
+      "summary": "Oboe through Prefab: a native AudioStream engine with a real-time data callback and reconnect on disconnect, device audio properties fed from Kotlin, a StateFlow repository, a Compose tone screen and the latency-tuning loop; runtime-unverified in this repository.",
+      "path": "capabilities/oboe-low-latency-audio/README.md",
+      "dependencies": ["com.google.oboe:oboe"],
+      "minSdk": 26,
+      "tags": ["audio", "oboe", "aaudio", "low-latency", "ndk", "runtime-unverified"]
+    },
+    {
+      "id": "vulkan-and-gles-rendering",
+      "name": "Vulkan and GLES rendering",
+      "category": "native",
+      "summary": "Choosing Activity + GLSurfaceView, GameActivity or NativeActivity, Vulkan versus OpenGL ES 3, surface lifecycle in C++, game-activity through Prefab with WHOLE_ARCHIVE, glslc shader compilation and a GLES renderer inside a Compose screen; runtime-unverified in this repository.",
+      "path": "capabilities/vulkan-and-gles-rendering/README.md",
+      "dependencies": ["androidx.games:games-activity"],
+      "minSdk": 26,
+      "tags": ["vulkan", "opengl", "gles", "gameactivity", "nativeactivity", "ndk", "graphics", "runtime-unverified"]
+    },
+    {
+      "id": "media-session-service",
+      "name": "Media session service",
+      "category": "media",
+      "summary": "UAMP architecture on Media3 1.11.1: MediaLibraryService with ExoPlayer, browse tree for Android Auto and Automotive, caller allowlisting in onConnect, DefaultMediaNotificationProvider, playback resumption, MediaBrowser repository with a Compose browse screen and Cast via media3-cast.",
+      "path": "capabilities/media-session-service/README.md",
+      "dependencies": ["androidx.media3:media3-exoplayer@media3", "androidx.media3:media3-session@media3", "androidx.media3:media3-ui-compose@media3", "androidx.media3:media3-cast@media3", "com.google.android.gms:play-services-cast-framework", "org.jetbrains.kotlinx:kotlinx-coroutines-guava"],
+      "minSdk": 24,
+      "tags": ["media3", "medialibraryservice", "android-auto", "automotive", "cast", "browse-tree", "music"]
+    },
+    {
+      "id": "rich-text-and-markdown",
+      "name": "Rich text and Markdown",
+      "category": "ui",
+      "summary": "Paragraph model to AnnotatedString with bold, italic, code, LinkAnnotation URLs and clickable mentions, TextLinkStyles, inline content, bullets and code blocks in a LazyColumn, AnnotatedString.fromHtml, and a JVM parser test.",
+      "path": "capabilities/rich-text-and-markdown/README.md",
+      "dependencies": ["androidx.compose.ui:ui-text"],
+      "minSdk": 24,
+      "tags": ["annotatedstring", "links", "markdown", "html", "text", "inline-content"]
+    },
+    {
+      "id": "compose-drawing-and-graphics",
+      "name": "Compose drawing and graphics",
+      "category": "ui",
+      "summary": "Canvas and draw modifiers, data-driven Path with drawWithCache, gradient Brush, graphicsLayer transforms without recomposition, scroll-provider lambdas, a custom Layout with a ParentDataModifier, and an AGSL shader Modifier.Node with a pre-API-33 fallback.",
+      "path": "capabilities/compose-drawing-and-graphics/README.md",
+      "dependencies": ["androidx.compose.ui:ui", "androidx.compose.foundation:foundation", "androidx.compose.ui:ui-text"],
+      "minSdk": 24,
+      "tags": ["canvas", "path", "drawwithcache", "graphicslayer", "charts", "custom-layout", "agsl", "shader"]
+    },
+    {
+      "id": "tv-and-large-screen-app",
+      "name": "TV and large-screen app",
+      "category": "tv",
+      "summary": "A :tv application module with androidx.tv Material on shared core modules: Leanback launcher manifest and banner, overscan margins, navigation drawer with focusProperties and focusGroup, catalog rows with focusRestorer, D-pad key handling on a custom seek bar, and TV emulator checks; runtime-unverified in this repository.",
+      "path": "capabilities/tv-and-large-screen-app/README.md",
+      "dependencies": ["androidx.tv:tv-material", "androidx.navigation:navigation-compose@navigation", "androidx.hilt:hilt-navigation-compose@androidxHilt"],
+      "minSdk": 26,
+      "tags": ["android-tv", "google-tv", "leanback", "dpad", "focus", "compose-for-tv", "runtime-unverified"]
     }
   ]
 }

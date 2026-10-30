@@ -11,10 +11,10 @@ Android Agent Skill teaches AI coding agents (Claude Code, Codex, Gemini CLI, Cu
 
 It has two halves that work together:
 
-1. **The skill**: `SKILL.md` plus `patterns/`, `capabilities/`, `checklists/`, `docs/` and `templates/`. Dense, version-pinned Kotlin and Jetpack Compose guidance an agent loads by task: architecture patterns, 37 feature recipes, release and security checklists, a buildable app template and CI workflow. No API key, no build step; install it as a skill or point the agent at the checkout.
+1. **The skill**: `SKILL.md` plus `patterns/`, `capabilities/`, `checklists/`, `docs/` and `templates/`. Dense, version-pinned Kotlin and Jetpack Compose guidance an agent loads by task: architecture patterns, 47 feature recipes, release and security checklists, a buildable app template and CI workflow. No API key, no build step; install it as a skill or point the agent at the checkout.
 2. **The tooling**: the `android-agent` CLI and stdio MCP server. Project analysis, Gradle builds, lint and tests, ADB and emulator control, UI hierarchy interaction, heuristic audits (Compose, Firebase, permissions, privacy, Play, accessibility, security), screenshots and deterministic resumable runs.
 
-**Developer preview, v0.2.0.** The skill content is written against Android 17 / API 37, AGP 9.4.0, Kotlin 2.4.20 and Compose BOM 2026.09.00 (see `data/versions.json`, verified 2026-09-29). The CLI and MCP server work locally; static findings are bounded heuristics, and device operations require your Android SDK and a real authorized device or running emulator. Read [validation](docs/VALIDATION.md) and [limitations](ROADMAP.md) before relying on a capability.
+**Developer preview, v0.3.0.** The skill content is written against Android 17 / API 37, AGP 9.4.0, Kotlin 2.4.20 and Compose BOM 2026.09.00 (see `data/versions.json`, verified 2026-09-29). The CLI and MCP server work locally; static findings are bounded heuristics, and device operations require your Android SDK and a real authorized device or running emulator. Read [validation](docs/VALIDATION.md) and [limitations](ROADMAP.md) before relying on a capability.
 
 ## Install the skill
 
@@ -41,10 +41,11 @@ The installer clones this repository into the client's skills directory (or fast
 | Architecture | `patterns/` | MVVM with `StateFlow` UiState, unidirectional data flow, Clean Architecture modules and convention plugins, offline-first repositories, Hilt and Koin, Navigation Compose and Navigation 3, error handling |
 | UI | `patterns/ui/` | Compose state and stability, Material 3 theming and dynamic color, adaptive layouts with `WindowSizeClass` and pane scaffolds, accessibility, animation |
 | Testing | `patterns/testing/` | ViewModel and repository tests with Turbine and a dispatcher rule, Compose UI tests, Compose Preview screenshot tests |
-| Feature recipes | `capabilities/` | 37 step-by-step recipes with dependencies, manifest entries, Kotlin implementation, verification commands and pitfalls: Room, DataStore, Retrofit and Ktor, WorkManager, notifications, deep links, biometrics, Credential Manager sign-in, Firebase Auth/Firestore/FCM/Crashlytics, Play Billing, CameraX, photo picker, Coil, Paging, Maps, location, Glance widgets, Media3, on-device AI, baseline profiles and more |
+| Feature recipes | `capabilities/` | 47 step-by-step recipes with dependencies, manifest entries, Kotlin implementation, verification commands and pitfalls: Room, DataStore, Retrofit and Ktor, WorkManager, notifications, deep links, biometrics, Credential Manager sign-in, Firebase Auth/Firestore/FCM/Crashlytics, Play Billing, CameraX, photo picker, Coil, Paging, Maps, location, Glance widgets, Media3, on-device AI, baseline profiles and more |
 | Platform guides | `docs/` | Agent engineering workflow, coroutines and Flow, Kotlin style, Compose side effects and performance, recommended app architecture, version compatibility and behavior changes, permissions, edge-to-edge and insets, migrating from Views |
-| Checklists | `checklists/` | Play Store submission, release, security, performance, testing, accessibility |
-| Templates | `templates/` | Single-module Compose app (Hilt, type-safe navigation, tests), GitHub Actions workflow with optional emulator job, MCP client config snippets, a style-check hook |
+| Checklists | `checklists/` | Play Store submission, release, security, performance, testing, accessibility, code quality |
+| Reference studies | `references/` | What this repository adopted from Google's official samples (Now in Android, architecture-samples, compose-samples, Sunflower, ndk-samples, UAMP), which toolchain each sample is on, and what not to copy from them |
+| Templates | `templates/` | Single-module Compose app (Hilt, type-safe navigation, tests), native library module with CMake and JNI, GitHub Actions workflow with optional emulator and baseline-profile jobs, MCP client config snippets, a style-check hook |
 
 Every guide cites versions from `data/versions.json` or says a version must be resolved from the official release page, ends with a `Verify` section naming the commands or tests that prove the work, and marks anti-patterns explicitly. Generated apps belong to their users: the skill forbids inserting maintainer branding or package identifiers into generated code.
 

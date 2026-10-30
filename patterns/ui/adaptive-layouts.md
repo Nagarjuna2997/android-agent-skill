@@ -216,6 +216,169 @@ import androidx.compose.ui.tooling.preview.Preview
 annotation class DevicePreviews
 ```
 
+## Choosing the navigation suite yourself
+
+`NavigationSuiteScaffold` picks bar, rail or drawer from the width class. When the product wants different rules (a permanent drawer only on very wide windows, a bottom bar in tabletop posture because the lower half is the only reachable area, a rail header that moves to the top on short windows), decide the `NavigationSuiteType` yourself and feed it to `NavigationSuiteScaffoldLayout`, which lays out your own navigation composable next to the content. This is how Reply from `android/compose-samples` does it.
+
+```kotlin
+package com.example.app
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowSize
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldLayout
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
+import androidx.window.core.layout.WindowSizeClass
+import androidx.window.core.layout.WindowSizeClass.Companion.HEIGHT_DP_MEDIUM_LOWER_BOUND
+import androidx.window.core.layout.WindowSizeClass.Companion.WIDTH_DP_EXPANDED_LOWER_BOUND
+import androidx.window.core.layout.WindowSizeClass.Companion.WIDTH_DP_MEDIUM_LOWER_BOUND
+import kotlinx.coroutines.launch
+
+// Compact in either dimension: a landscape phone is wide but too short for a rail with a header.
+private fun WindowSizeClass.isCompactInAnyDimension(): Boolean =
+    !isWidthAtLeastBreakpoint(WIDTH_DP_MEDIUM_LOWER_BOUND) || !isHeightAtLeastBreakpoint(HEIGHT_DP_MEDIUM_LOWER_BOUND)
+
+@Composable
+fun AppNavigationShell(
+    current: TopLevel,
+    onNavigate: (TopLevel) -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val adaptiveInfo = currentWindowAdaptiveInfo()
+    val windowWidthDp = with(LocalDensity.current) { currentWindowSize().toSize().toDpSize().width }
+
+    val layoutType = when {
+        adaptiveInfo.windowPosture.isTabletop -> NavigationSuiteType.NavigationBar
+        adaptiveInfo.windowSizeClass.isCompactInAnyDimension() -> NavigationSuiteType.NavigationBar
+        adaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(WIDTH_DP_EXPANDED_LOWER_BOUND) &&
+            windowWidthDp >= 1200.dp -> NavigationSuiteType.NavigationDrawer
+        else -> NavigationSuiteType.NavigationRail
+    }
+
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    // A swipe must not open the modal drawer when a permanent drawer or a bottom bar is showing,
+    // but an open drawer must always be closable.
+    val gesturesEnabled = drawerState.isOpen || layoutType == NavigationSuiteType.NavigationRail
+    BackHandler(enabled = drawerState.isOpen) { scope.launch { drawerState.close() } }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = gesturesEnabled,
+        drawerContent = { AppDrawerContent(current, onNavigate, onClose = { scope.launch { drawerState.close() } }) },
+    ) {
+        NavigationSuiteScaffoldLayout(
+            layoutType = layoutType,
+            navigationSuite = {
+                when (layoutType) {
+                    NavigationSuiteType.NavigationBar -> AppBottomBar(current, onNavigate)
+                    NavigationSuiteType.NavigationRail -> AppRail(current, onNavigate, onMenu = { scope.launch { drawerState.open() } })
+                    else -> AppPermanentDrawer(current, onNavigate)
+                }
+            },
+            content = content,
+        )
+    }
+}
+```
+
+`AppBottomBar`, `AppRail`, `AppPermanentDrawer` and `AppDrawerContent` are ordinary `NavigationBar`, `NavigationRail` and `PermanentDrawerSheet` composables over the same `TopLevel` enum. Keep the selection logic in one function like the one above; do not map `NavigationSuiteType` to an app-specific enum and back.
+
+## The `isExpandedScreen` two-pane pattern
+
+Before reaching for `ListDetailPaneScaffold`, consider the simpler shape JetNews uses: compute one Boolean at the root and let it drive three decisions. It fits apps whose "detail" is a full screen on phones and a side pane on tablets, with no third pane and no extra-pane navigation.
+
+```kotlin
+package com.example.app
+
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.DrawerState
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.window.core.layout.WindowSizeClass.Companion.WIDTH_DP_EXPANDED_LOWER_BOUND
+import kotlinx.coroutines.launch
+
+@Composable
+fun AppRoot() {
+    val isExpandedScreen = currentWindowAdaptiveInfo().windowSizeClass
+        .isWidthAtLeastBreakpoint(WIDTH_DP_EXPANDED_LOWER_BOUND)
+    val drawerState = rememberSizeAwareDrawerState(isExpandedScreen)
+    val scope = rememberCoroutineScope()
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = !isExpandedScreen,               // (1) no modal drawer when the rail is shown
+        drawerContent = { AppDrawerContent(onNavigated = { scope.launch { drawerState.close() } }) },
+    ) {
+        Row {
+            if (isExpandedScreen) AppRail()                // (2) rail replaces the drawer
+            AppNavHost(
+                isExpandedScreen = isExpandedScreen,       // (3) panes hide their own top bars when side by side
+                openDrawer = { scope.launch { drawerState.open() } },
+            )
+        }
+    }
+}
+
+// Technique from android/compose-samples JetNews (Apache-2.0): on expanded windows provide a drawer
+// state that is deliberately not remembered, so it can never be opened and never saves state.
+@Composable
+private fun rememberSizeAwareDrawerState(isExpandedScreen: Boolean): DrawerState {
+    val remembered = rememberDrawerState(DrawerValue.Closed)
+    return if (isExpandedScreen) DrawerState(DrawerValue.Closed) else remembered
+}
+```
+
+Inside the host, the list screen shows its top app bar only when `!isExpandedScreen` (the rail carries navigation otherwise) and the detail screen shows a back arrow and bottom action bar only when `!isExpandedScreen` (side by side, the list is already visible). When the window shrinks while a detail is open, the detail becomes the full screen and back returns to the list; when it grows, the list reappears beside it. Both work because the selected item id lives in navigation state, not in a composable.
+
+If the `isExpandedScreen` value is read inside a `remember` block (for example when building Navigation 3 entries that are cached), wrap it with `rememberUpdatedState` and pass a `() -> Boolean` so a later resize is observed:
+
+```kotlin
+val currentIsExpanded by rememberUpdatedState(isExpandedScreen)
+val entries = remember { buildEntries(isExpanded = { currentIsExpanded }) }
+```
+
+Switch to `ListDetailPaneScaffold` when you need the medium breakpoint to also show two panes, animated pane transitions, or an extra pane; it also owns back handling and saved state for you.
+
+## Multi-form-factor module layout
+
+An app that ships to phone, tablet, TV and watch is one Gradle project with one application module per form factor on a shared core, not one module with `if (isTv)` branches. Jetcaster from `android/compose-samples` is the reference layout:
+
+```text
+settings.gradle.kts
+  :core:data            Room, network, repositories (interfaces + implementations)
+  :core:data-testing    fake repositories for every UI module's tests
+  :core:domain          use cases and domain models
+  :core:domain-testing  fakes for use cases
+  :core:designsystem    colors, typography, shapes, keylines, shared image composable
+  :mobile               com.android.application, phone + tablet + foldable, Material 3 adaptive
+  :tv                   com.android.application, androidx.tv Material, LEANBACK_LAUNCHER
+  :wear                 com.android.application, Compose for Wear OS
+  :glancewidget         Glance widget on the same data
+```
+
+Rules that make this work:
+
+- Every application module declares the same `applicationId` and version, so Play treats them as one app with device-targeted bundles; `:tv` and `:wear` add their manifest features (`android.software.leanback`, `android.hardware.type.watch`).
+- Only `:core:designsystem` and the UI modules depend on Compose. `:core:data` and `:core:domain` are Kotlin and coroutines; they compile fast and are tested on the JVM.
+- The TV and watch modules do not depend on `:mobile`; a shared composable that every form factor needs (a podcast thumbnail, an empty state) belongs in `:core:designsystem`, and a form-factor-specific one stays in its module.
+- `targetSdk` is per module: Play's minimum for TV (34) and Wear (35) differs from phone and tablet (36); see `data/versions.json` under `policy.newAppsAndUpdates`.
+- A single Compose compiler stability configuration file at the root, referenced by each module's `composeCompiler { stabilityConfigurationFiles }`, keeps domain models stable everywhere.
+
+The per-form-factor recipes are [../../capabilities/tv-and-large-screen-app/README.md](../../capabilities/tv-and-large-screen-app/README.md) and [../../capabilities/wear-os-companion/README.md](../../capabilities/wear-os-companion/README.md); the module split itself follows [../clean-architecture.md](../clean-architecture.md).
+
 ## Avoid
 
 ```kotlin
@@ -233,6 +396,10 @@ android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
 
 // Anti-pattern: duplicating full screens per size class. Share the pane composables
 // and vary only the scaffold.
+
+// Anti-pattern: Accompanist TwoPane / calculateDisplayFeatures, or material3-window-size-class's
+// calculateWindowSizeClass(activity). Both are superseded by currentWindowAdaptiveInfo() and the
+// adaptive scaffolds; do not add Accompanist to a new project for this.
 ```
 
 ## Verify
@@ -257,3 +424,5 @@ Run the list-detail screen through: phone portrait, phone landscape, foldable ha
 - https://developer.android.com/guide/topics/large-screens/large-screen-app-quality
 - https://developer.android.com/jetpack/androidx/releases/window
 - https://developer.android.com/jetpack/androidx/releases/compose-material3-adaptive
+- https://developer.android.com/google/play/requirements/target-sdk
+- https://github.com/android/compose-samples (JetNews, Reply, Jetcaster; see [../../references/compose-samples.md](../../references/compose-samples.md))

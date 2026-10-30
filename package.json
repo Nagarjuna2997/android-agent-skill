@@ -1,6 +1,6 @@
 {
   "name": "android-agent-skill",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Android app engineering skill and local-first tooling for coding agents: Kotlin/Compose patterns, capability recipes, checklists, templates, plus a CLI and MCP server for Gradle, devices and evidence.",
   "type": "module",
   "license": "MIT",

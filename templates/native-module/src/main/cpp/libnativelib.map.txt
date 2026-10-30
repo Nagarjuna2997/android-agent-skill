@@ -1,0 +1,6 @@
+LIBNATIVELIB {
+  global:
+    JNI_OnLoad;
+  local:
+    *;
+};

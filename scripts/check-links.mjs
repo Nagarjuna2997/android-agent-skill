@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve, relative } from 'node:path';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const roots = ['SKILL.md', 'README.md', 'patterns', 'capabilities', 'checklists', 'docs', 'templates'];
+const roots = ['SKILL.md', 'README.md', 'patterns', 'capabilities', 'checklists', 'docs', 'templates', 'references'];
 const skipDirs = new Set(['node_modules', 'dist', '.git', '.android-agent']);
 
 function* walk(path) {
@@ -23,7 +23,7 @@ function* walk(path) {
 }
 
 const linkPattern = /\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
-const backtickPathPattern = /`((?:patterns|capabilities|checklists|docs|templates|data)\/[^`\s]+)`/g;
+const backtickPathPattern = /`((?:patterns|capabilities|checklists|docs|templates|references|data)\/[^`\s]+)`/g;
 const failures = [];
 
 for (const entry of roots) {

@@ -642,6 +642,99 @@ class TodoViewModelTest {
 
 `runTest` with a `StandardTestDispatcher` queues coroutines until the test yields; Turbine's `awaitItem()` yields, so launches inside `add()` run at the right moment. If a test hangs on `awaitItem()`, the usual cause is a dispatcher that was not routed through the rule.
 
+## Comparison with Architecture Samples
+
+Google's Architecture Samples to-do app (see [../references/architecture-samples.md](../references/architecture-samples.md)) builds the same kind of ViewModel with a few different choices. Knowing both lets you read either style in an existing codebase and pick deliberately.
+
+| Concern | This file | Architecture Samples | Verdict |
+|---|---|---|---|
+| Shape of `UiState` | data class with a nested sealed `Content` (Loading/Empty/Success/Error) plus flags | flat data class: `items`, `isLoading`, `userMessage`; an `Async<T>` sealed wrapper used only inside the ViewModel while combining | Sealed content when phases are exclusive; flat flags when they coexist. Both are one immutable state; neither is wrong. |
+| Sharing policy | `SharingStarted.WhileSubscribed(5_000)` inline | a top-level `val WhileUiSubscribed = SharingStarted.WhileSubscribed(5_000)` reused by every ViewModel | Adopt the constant; the policy is reviewable in one place. |
+| One-off messages | `UserMessage(id, text)` in state; UI calls `messageShown(id)` | `userMessage: Int?` (string resource id) in state; UI calls `snackbarMessageShown()` | Same mechanism. The id matters when the same text can fire twice in a row (two failed saves): without it the second `LaunchedEffect(message)` does not re-run. A resource id ties the ViewModel to `R.string`; keep a `String` or a sealed message and resolve in the UI. |
+| Results across navigation | state on the previous screen's ViewModel, or `SavedStateHandle` of the previous back stack entry | an integer route argument (`?userMessage=`) read on the list screen and zeroed after display | Do not copy the route-argument trick with type-safe routes; it was a Views-era pattern. |
+| Loading flag for refresh | derived from the refresh `Result` | `_isLoading` toggled by hand around `refresh()` | Derive it; a hand-toggled flag stays `true` when `refresh()` throws. |
+| Combining sources | `combine(content, filter, userMessage)` | `combine(filterUiInfo, isLoading, userMessage, tasksAsync)` with a `when` over `Async` | Identical idea. The `Async` wrapper is useful when only one of several sources can fail or be slow. |
+| Error path | `.catch { emit(Content.Error(message)) }` on the content flow | `.catch { emit(Async.Error(R.string.loading_tasks_error)) }` on the repository flow, then `when (Async.Error)` builds a state with `userMessage` | Both catch at the flow boundary, which is right; `catch` does not swallow `CancellationException`. |
+| Dispatcher injection | `@IoDispatcher CoroutineDispatcher` in the ViewModel for `flowOn` | none in the ViewModel; the repository takes `@DefaultDispatcher` for mapping work and an `@ApplicationScope` for fire-and-forget network writes | Both are fine. Inject into whichever layer does the work; the ViewModel needs a dispatcher only when it transforms data itself. |
+
+The `Async` wrapper and the constant, re-implemented for this project:
+
+```kotlin
+package com.example.app.core.common
+
+import kotlinx.coroutines.flow.SharingStarted
+
+/**
+ * Keep upstream flows alive for 5 s after the last collector leaves, so a configuration change does not
+ * restart a Room query or a network call, but a backgrounded app stops collecting.
+ */
+val WhileUiSubscribed: SharingStarted = SharingStarted.WhileSubscribed(5_000)
+
+/** Holds a loading signal or the result of one async source; used inside a ViewModel while combining flows. */
+sealed interface Async<out T> {
+    data object Loading : Async<Nothing>
+    data class Error(val message: UserMessage) : Async<Nothing>
+    data class Success<T>(val data: T) : Async<T>
+}
+```
+
+The flat-state variant of the ViewModel in this file, for a screen where the list and a refresh indicator coexist:
+
+```kotlin
+data class TodoUiState(
+    val items: List<TodoItem> = emptyList(),
+    val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
+    val filter: TodoFilter = TodoFilter.ALL,
+    val userMessage: UserMessage? = null,
+)
+
+@HiltViewModel
+class TodoViewModel @Inject constructor(
+    private val repository: TodoRepository,
+    savedStateHandle: SavedStateHandle,
+) : ViewModel() {
+    private val filter = savedStateHandle.getStateFlow(KEY_FILTER, TodoFilter.ALL)
+    private val isRefreshing = MutableStateFlow(false)
+    private val userMessage = MutableStateFlow<UserMessage?>(null)
+
+    private val itemsAsync: Flow<Async<List<TodoItem>>> =
+        combine(repository.observeAll(), filter) { items, f -> items.filterBy(f) }
+            .map<List<TodoItem>, Async<List<TodoItem>>> { Async.Success(it) }
+            .catch { emit(Async.Error(UserMessage(System.nanoTime(), "Could not load items."))) }
+
+    val uiState: StateFlow<TodoUiState> =
+        combine(itemsAsync, filter, isRefreshing, userMessage) { async, f, refreshing, message ->
+            when (async) {
+                Async.Loading -> TodoUiState(isLoading = true, filter = f)
+                is Async.Error -> TodoUiState(filter = f, userMessage = async.message)
+                is Async.Success -> TodoUiState(items = async.data, filter = f, isRefreshing = refreshing, userMessage = message)
+            }
+        }.stateIn(viewModelScope, WhileUiSubscribed, TodoUiState(isLoading = true))
+
+    fun refresh() {
+        viewModelScope.launch {
+            isRefreshing.value = true
+            try {
+                repository.refresh().onFailure { userMessage.value = UserMessage(System.nanoTime(), it.toText()) }
+            } finally {
+                isRefreshing.value = false      // the finally block is what the hand-toggled flag in the sample lacks
+            }
+        }
+    }
+
+    fun messageShown(id: Long) = userMessage.update { if (it?.id == id) null else it }
+}
+```
+
+`Async.Loading` is never emitted here because `observeAll()` is a Room flow that emits as soon as it subscribes; the initial `stateIn` value covers the gap. Keep the branch so a source that does emit `Loading` (a `flow { emit(Loading); ... }` around a network call) plugs in without changing the `when`.
+
+What to take from the sample and what to leave:
+
+- Take `WhileUiSubscribed` and the `Async` wrapper when a ViewModel combines more than two sources.
+- Take the one-off message shape; add the id.
+- Leave resource ids in state, hand-toggled loading flags, and results passed as route arguments.
+
 ## Anti-patterns
 
 ```kotlin
@@ -689,3 +782,5 @@ Both must pass before claiming the screen works. "Compiled and unit-tested" is a
 - https://developer.android.com/kotlin/flow/stateflow-and-sharedflow
 - https://developer.android.com/develop/ui/compose/state
 - https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-test/
+- https://developer.android.com/topic/architecture/ui-layer/events
+- [../references/architecture-samples.md](../references/architecture-samples.md) for the sample compared above

@@ -166,6 +166,124 @@ Live regions announce changes without focus moving; use them for a snackbar repl
 Text(statusText, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
 ```
 
+## Semantics patterns from the Compose samples
+
+JetNews, Jetchat and Reply in `android/compose-samples` ([../../references/compose-samples.md](../../references/compose-samples.md)) use a handful of semantics techniques beyond the basics above. They are small enough to live here rather than in a separate capability.
+
+### One row, one node, extra actions (JetNews)
+
+A list row with a tap target and an inner toggle button (bookmark, favorite) is two focus stops by default, and the toggle has no visible label. JetNews moves the toggle into the row's `customActions` and strips the inner button's semantics so TalkBack sees one node with "Bookmark" in its actions menu:
+
+```kotlin
+package com.example.app.ui.feed
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconToggleButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
+import com.example.app.R
+
+@Composable
+fun ArticleRow(article: Article, isBookmarked: Boolean, onOpen: () -> Unit, onToggleBookmark: () -> Unit) {
+    val bookmarkLabel = stringResource(if (isBookmarked) R.string.action_remove_bookmark else R.string.action_bookmark)
+    Row(
+        Modifier
+            .clickable(onClick = onOpen)                       // merges descendants; one node
+            .semantics {
+                // Technique from android/compose-samples JetNews (Apache-2.0): the row carries the
+                // secondary action so a screen reader user finds it in the actions menu.
+                customActions = listOf(CustomAccessibilityAction(bookmarkLabel) { onToggleBookmark(); true })
+            },
+    ) {
+        ArticleSummary(article)
+        IconToggleButton(
+            checked = isBookmarked,
+            onCheckedChange = { onToggleBookmark() },
+            // The row already exposes the action; hide the inner button from services so it is
+            // not announced twice. Sighted users still tap it.
+            modifier = Modifier.clearAndSetSemantics { },
+        ) {
+            Icon(painterResource(if (isBookmarked) R.drawable.ic_bookmark else R.drawable.ic_bookmark_outline), contentDescription = null)
+        }
+    }
+}
+```
+
+Where the inner button should stay a separate node (it is the primary thing in the row), rename its click action instead of hiding it, so TalkBack says "double tap to bookmark" rather than "double tap to activate":
+
+```kotlin
+IconToggleButton(
+    checked = isBookmarked,
+    onCheckedChange = { onToggleBookmark() },
+    modifier = Modifier.semantics { onClick(label = bookmarkLabel, action = null) },   // label only; the real action stays
+) { Icon(..., contentDescription = null) }
+```
+
+### Custom semantics properties for tests (Jetchat)
+
+A UI test sometimes needs to assert something the standard properties do not express, such as whether the input bar is in keyboard mode or emoji mode. Define a `SemanticsPropertyKey`, set it in `semantics { }`, and match on it in tests. Accessibility services ignore unknown keys, so this costs nothing at runtime.
+
+```kotlin
+package com.example.app.ui.chat
+
+import androidx.compose.ui.semantics.SemanticsPropertyKey
+import androidx.compose.ui.semantics.SemanticsPropertyReceiver
+
+val InputModeKey = SemanticsPropertyKey<InputMode>("InputMode")
+var SemanticsPropertyReceiver.inputMode by InputModeKey
+
+// In the composable:
+Modifier.semantics { inputMode = currentMode }
+
+// In a test:
+composeRule.onNode(SemanticsMatcher.expectValue(InputModeKey, InputMode.Emoji)).assertExists()
+```
+
+Prefer `testTag` for plain "find this node" cases; a custom key is for state that the test must read.
+
+### Role.Image on custom image composables (Jetchat)
+
+A `Box` that draws an avatar with `drawBehind` or a `Canvas` chart is not an image to TalkBack unless you say so. Set the role and a description together; omit both for decoration.
+
+```kotlin
+val semantics = if (contentDescription != null) {
+    Modifier.semantics { this.contentDescription = contentDescription; role = Role.Image }
+} else {
+    Modifier
+}
+Box(modifier.then(semantics)) { /* drawn content */ }
+```
+
+### Selection state in multi-select lists (Reply)
+
+A row that can be selected (checkbox mode in an email list) should expose `selected`, not only change its background. Use `Modifier.selectable(selected, onClick)` when the row itself toggles selection; when a long-press enters selection mode and a tap opens the item, set the property directly:
+
+```kotlin
+Modifier.semantics { selected = isSelected }
+```
+
+Pair it with a `selectableGroup()` on the list when exactly one item can be selected (a radio list), so services announce "2 of 5".
+
+### Lists: collectionInfo and item positions
+
+`LazyColumn` and `LazyRow` already publish `collectionInfo` (row and column counts) and each item's `collectionItemInfo`, which is how TalkBack reads "item 4 of 20". A custom `Layout` that presents a grid or carousel does not; add them yourself:
+
+```kotlin
+Modifier.semantics { collectionInfo = CollectionInfo(rowCount = items.size, columnCount = 1) }
+// on each child:
+Modifier.semantics { collectionItemInfo = CollectionItemInfo(rowIndex = index, rowSpan = 1, columnIndex = 0, columnSpan = 1) }
+```
+
+Only do this for custom layouts; adding it to a `LazyColumn` duplicates what it already reports.
+
 ## Testing
 
 Unit-level: the Compose test rule works on the same semantics tree TalkBack uses, so assertions on content descriptions, roles and merged text verify accessibility without a device.
@@ -234,3 +352,5 @@ adb shell settings put global animator_duration_scale 0
 - https://developer.android.com/guide/topics/ui/accessibility/apps
 - https://developer.android.com/guide/topics/ui/accessibility/testing
 - https://support.google.com/accessibility/android/answer/6376570
+- https://developer.android.com/develop/ui/compose/accessibility/merging
+- https://github.com/android/compose-samples (JetNews, Jetchat, Reply; see [../../references/compose-samples.md](../../references/compose-samples.md))

@@ -21,10 +21,18 @@ env:
   # AGP 9.4.0 runs on JDK 17 (data/versions.json). The project's own Gradle wrapper pins Gradle.
   JAVA_VERSION: "17"
   MODULE: "app"
+  # Flags every Gradle invocation below shares. --no-daemon: a fresh JVM per step is cheaper than a daemon that
+  # dies with the runner. --configuration-cache: configuration is reused between steps of the same job;
+  # if a plugin is not configuration-cache compatible, drop the flag rather than ignoring the warning.
+  # (Technique from android/nowinandroid, Apache-2.0: it sets the same via a CI-only gradle.properties.)
+  GRADLE_FLAGS: "--no-daemon --stacktrace --configuration-cache"
+  # Settings that would otherwise live in a CI-specific gradle.properties.
+  GRADLE_OPTS: "-Dorg.gradle.parallel=true -Dorg.gradle.workers.max=3 -Dorg.gradle.jvmargs=-Xmx4g"
 
 permissions:
   contents: read
   checks: write
+  security-events: write   # for the lint SARIF upload; remove with that step if not wanted
 
 jobs:
   check:
@@ -46,9 +54,27 @@ jobs:
         with:
           # Keep the cache read-only on PRs so forks cannot poison it; main writes it.
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          # The configuration cache contains project secrets; GitHub only stores it encrypted.
+          # Generate once with `openssl rand -base64 16` and add it as a repository secret. Without the
+          # secret the configuration cache is simply not saved between runs, which is safe.
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          # Optional: publish a build scan for every CI build (requires accepting the Gradle terms).
+          # build-scan-publish: true
+          # build-scan-terms-of-use-url: "https://gradle.com/terms-of-service"
+          # build-scan-terms-of-use-agree: "yes"
 
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v4
+
+      # Projects with an included build-logic (patterns/clean-architecture.md) validate the convention
+      # plugins before using them; a broken plugin fails here with a clear message instead of in every module.
+      - name: Check build logic
+        run: |
+          if [ -d build-logic ]; then
+            ./gradlew :build-logic:convention:check ${{ env.GRADLE_FLAGS }}
+          else
+            echo "no build-logic/ directory, skipping"
+          fi
 
       - name: Style check
         run: |
@@ -58,14 +84,34 @@ jobs:
             echo "hooks/check-android-style.sh not present, skipping"
           fi
 
+      # Formatting and license headers via Spotless + ktlint (checklists/code-quality.md). Runs only when the
+      # plugin is applied, so the template works for projects that have not adopted it yet.
+      - name: Spotless check
+        run: |
+          if ./gradlew tasks --all ${{ env.GRADLE_FLAGS }} -q | grep -q "^spotlessCheck"; then
+            ./gradlew spotlessCheck ${{ env.GRADLE_FLAGS }}
+          else
+            echo "spotless plugin not applied, skipping"
+          fi
+
+      # Dependency Guard (checklists/code-quality.md) fails when the release runtime classpath drifts from the
+      # committed baseline. Fix locally with `./gradlew dependencyGuardBaseline` and commit the diff.
+      - name: Dependency guard
+        run: |
+          if ./gradlew tasks --all ${{ env.GRADLE_FLAGS }} -q | grep -q "^dependencyGuard"; then
+            ./gradlew dependencyGuard ${{ env.GRADLE_FLAGS }}
+          else
+            echo "dependency-guard plugin not applied, skipping"
+          fi
+
       - name: Lint
-        run: ./gradlew :${{ env.MODULE }}:lintDebug --no-daemon --stacktrace
+        run: ./gradlew :${{ env.MODULE }}:lintDebug ${{ env.GRADLE_FLAGS }}
 
       - name: Unit tests
-        run: ./gradlew :${{ env.MODULE }}:testDebugUnitTest --no-daemon --stacktrace
+        run: ./gradlew :${{ env.MODULE }}:testDebugUnitTest ${{ env.GRADLE_FLAGS }}
 
       - name: Assemble debug
-        run: ./gradlew :${{ env.MODULE }}:assembleDebug --no-daemon --stacktrace
+        run: ./gradlew :${{ env.MODULE }}:assembleDebug ${{ env.GRADLE_FLAGS }}
 
       - name: Upload lint report
         if: always()
@@ -74,6 +120,15 @@ jobs:
           name: lint-report
           path: ${{ env.MODULE }}/build/reports/lint-results-debug.html
           if-no-files-found: ignore
+
+      # With `lint { sarifReport = true }` (the lint convention in patterns/clean-architecture.md) findings show
+      # up in the Security tab and as PR annotations. Needs `security-events: write` in permissions.
+      - name: Upload lint SARIF
+        if: ${{ !cancelled() && hashFiles(format('{0}/build/reports/lint-results-debug.sarif', env.MODULE)) != '' }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ env.MODULE }}/build/reports/lint-results-debug.sarif
+          category: lint-${{ env.MODULE }}
 
       - name: Upload unit test reports
         if: always()
@@ -136,7 +191,7 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: ./gradlew :${{ env.MODULE }}:connectedDebugAndroidTest --no-daemon --stacktrace
+          script: ./gradlew :${{ env.MODULE }}:connectedDebugAndroidTest ${{ env.GRADLE_FLAGS }}
 
       - name: Upload instrumentation reports
         if: always()
@@ -147,3 +202,54 @@ jobs:
             ${{ env.MODULE }}/build/reports/androidTests/connected/
             ${{ env.MODULE }}/build/outputs/androidTest-results/connected/
           if-no-files-found: ignore
+
+  # Optional: regenerate baseline profiles on a Gradle-managed device (capabilities/app-startup-and-baseline-profiles).
+  # Runs on manual dispatch only; schedule it nightly with `on.schedule` once it is stable, as Now in Android does.
+  # Requires a :baselineprofile module with the androidx.baselineprofile plugin (Benchmark 1.5.0) and a managed
+  # device named in its build file (here `pixel6Api34`). The generated baseline-prof.txt is uploaded as an artifact;
+  # commit it in a separate PR after checking the startup benchmark improved.
+  baseline_profile:
+    name: Baseline profile (manual)
+    needs: check
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: true
+
+      - name: Accept SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Generate baseline profile
+        # Managed devices need software GPU on hosted runners. `--no-configuration-cache` is deliberate: the
+        # managed-device plugin tasks are not all configuration-cache safe yet.
+        run: >
+          ./gradlew :${{ env.MODULE }}:generateBaselineProfile
+          -Pandroid.testoptions.manageddevices.emulator.gpu="swiftshader_indirect"
+          -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=baselineprofile
+          --no-daemon --stacktrace --no-configuration-cache
+
+      - name: Upload generated profile
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseline-profile
+          path: ${{ env.MODULE }}/src/main/generated/baselineProfiles/
+          if-no-files-found: error
