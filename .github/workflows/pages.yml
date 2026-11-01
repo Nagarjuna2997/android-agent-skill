@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: 22
       - run: node scripts/render-site-catalog.mjs --check
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
         with:
           enablement: true
       - uses: actions/upload-pages-artifact@v3
